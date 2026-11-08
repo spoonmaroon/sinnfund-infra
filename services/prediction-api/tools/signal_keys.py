@@ -15,7 +15,7 @@ import tempfile
 
 DEFAULT_HOST = "sinnfund"
 REMOTE_ROOT = "/opt/prediction-api/signal-data"
-FILES = {"sender": "senders.htpasswd", "exporter": "exporters.htpasswd"}
+FILES = {"sender": "senders.htpasswd", "exporter": "exporters.htpasswd", "admin": "admins.htpasswd"}
 NAME = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 HOST = re.compile(r"^[A-Za-z0-9_.@:-]+$")
 
@@ -28,10 +28,10 @@ def ask(prompt, default=None):
 
 def ask_scope():
     while True:
-        value = ask("Key type (sender/exporter)", "sender")
+        value = ask("Key type (sender/exporter/admin)", "sender")
         if value in FILES:
             return value
-        print("Enter sender or exporter.")
+        print("Enter sender, exporter, or admin (sender + exporter permissions).")
 
 
 def ask_count(action):

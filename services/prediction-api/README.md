@@ -3,6 +3,124 @@
 FastAPI service for legacy predictions, authenticated research signals, and the separate paper-order
 inbox.
 
+## Source review map
+
+- `app.py`: FastAPI entry point, legacy prediction/portfolio routes, and router registration.
+- `signal_ledger.py`: sender/exporter/admin authentication, signal validation and ownership,
+  create/edit/delete history, quote checks, and LIVE target CSV export.
+- `paper_signals.py`: paper submitter/worker authentication and order-queue lifecycle.
+- `tools/signal_keys.py`: generate, rotate, list, and revoke sender/exporter/admin keys.
+- `tools/signal_client.py`: save an issued key and call the signal API.
+- `tools/signal_list.py`: read all senders' latest signals as a table on the box.
+- `tools/signal_stress.py`: bounded sustained create/delete test with cleanup and a JSON report.
+- `tests/`: existing key-management and sender-client tests.
+
+On November 4, 2026 (America/Chicago), the three service Python files above were
+copied from the running JKoh service for review. Its dependency list matched this
+checkout. On November 5, the deployed sender client was verified against the
+previous committed version, then updated with the table/filter/export commands;
+the new listing and stress-test helpers were also installed on JKoh. The existing
+key-management tool was retained without a deployed-file comparison.
+Private runtime configuration, credentials, key hashes, logs, and signal data were
+not copied. This is source for review, not a configured local deployment.
+
+### List signals from the terminal
+
+From your computer, list signals owned by your saved sender key:
+
+```bash
+python3 services/prediction-api/tools/signal_client.py list --table --destination LIVE --status pending
+```
+
+Omit the filters to include other destinations/statuses. Omit `--table` for the
+existing JSON output. To see everyone's pending LIVE signals on JKoh, use the
+read-only ledger viewer (requires the SSH user's existing ledger read permission):
+
+```bash
+ssh sinnfund 'python3 /opt/prediction-api/tools/signal_list.py --destination LIVE'
+```
+
+The viewer defaults to pending. Use `--status all` to include deleted/exported
+signals, or `--ledger /path/to/ledger.csv` to inspect a different ledger.
+
+### Export a CSV on the box
+
+An admin key can export using the same saved key used for sending:
+
+```bash
+python3 services/prediction-api/tools/signal_client.py export
+```
+
+An exporter-only key remains supported with `--key-file ~/.config/sinnfund/signal-exporter.key`.
+
+This calls `POST /signals/export` and consumes **all pending LIVE signals across
+all senders**. It does not accept a sender or signal selection. Duplicate tickers
+or unavailable/stale quotes can block the export. The response reports the export
+ID and row counts. The API saves the CSV on the box, not on the caller's computer:
+
+```text
+/opt/prediction-api/signal-data/exports/targets_<UTC time>_<export_id>.csv
+```
+
+The explicit key file overrides the saved sender/admin key for this command.
+Exported signals cannot subsequently be deleted through the signal API.
+
+Clear the pending LIVE queue without creating a CSV (admin only):
+
+```bash
+python3 services/prediction-api/tools/signal_client.py clear-live
+```
+
+Clear marks every pending LIVE signal as `cleared` with `cleared_by_admin` in the
+audit ledger. It does not remove history or affect PAPER/final signals.
+
+### Sustained test from your computer
+
+```bash
+python3 services/prediction-api/tools/signal_stress.py --seconds 60 --workers 4 --batch-size 100 --output signal-stress-results.json
+```
+
+Uses the sender client's saved credential and HTTPS base URL. Each worker creates
+one batch, then deletes that batch before starting another. Test IDs have a unique
+run prefix; cleanup only selects that prefix. The script never exports or submits
+PAPER orders. It stops new cycles on errors or responses exceeding five seconds,
+then verifies cleanup. It prints progress every ten seconds and saves timings,
+errors, and cleanup status as JSON. Limits: 300 seconds, ten workers, 100 signals
+per request. In-flight requests and cleanup may extend past the requested duration.
+These are closed-loop measurements, not a guarantee of any offered arrival rate.
+
+Deleted test signals remain in the audit ledger and appear in unfiltered listings.
+An interrupted process or network failure may require cleanup using the report's
+run prefix; never delete other senders' records or rewrite audit history to clean up.
+
+### Storage optimization and abuse checks (November 5, 2026)
+
+The CSV remains authoritative, with the same schema and complete audit history.
+The API caches parsed signal state while holding the existing cross-process lock;
+device/inode, size, modification time and change time invalidate that cache after
+another writer changes the file. New events update cached state incrementally.
+Writes copy the existing CSV bytes into a temporary file, append only new events,
+fsync, and atomically replace the old file. Failed writes cannot leave partial
+CSV rows or uncommitted records in the cache. Legacy-column ledgers are normalized
+on the next write. The tradeoff is that each write still copies the CSV; multiple
+API processes also cause more cache reloads. This is not a database migration.
+
+Validation errors now return JSON-safe 422 responses without echoing input values,
+including when clients submit non-finite numbers. Legacy `/prediction` submissions
+now require positive finite prices, positive integer timestamps, valid researcher
+and ticker strings, and no extra fields or coerced numeric strings. Valid numeric
+JSON submissions retain their existing behavior.
+
+`tests/test_signal_ledger.py` covers history preservation, cache invalidation,
+cross-process changes, concurrent writes, write failures and CSV export.
+`tests/test_api_abuse.py` starts a disposable HTTP service with synthetic prices
+and tests ownership, credential scopes, malformed input and atomic bulk rejection.
+Run the full suite with the service's dependencies installed:
+
+```bash
+python3 -m unittest discover -s services/prediction-api/tests
+```
+
 **Production location:** `/opt/prediction-api`
 
 **systemd unit:** `prediction-api.service`
@@ -28,6 +146,7 @@ accepted as proof of identity.
 |---|---|---|
 | Sender | `/opt/prediction-api/signal-data/senders.htpasswd` | Create, read, edit, and delete owned signals |
 | Exporter | `/opt/prediction-api/signal-data/exporters.htpasswd` | Consume pending LIVE signals into a target CSV |
+| Admin | `/opt/prediction-api/signal-data/admins.htpasswd` | All sender operations, LIVE export, and clearing the pending LIVE queue |
 
 The username in the hash file becomes the signal's audit identity. Names must match
 `[A-Za-z0-9_.-]{1,64}`. The API reads the files on every request, so rotation and revocation take
@@ -131,10 +250,10 @@ it to its owner, remove it from the current shell:
 unset SIGNAL_API_KEY
 ```
 
-## 3. Issue an exporter key
+## 3. Issue an exporter or admin key
 
-Exporter keys are deliberately separate because export consumes every pending LIVE signal. Repeat
-the sender procedure with these substitutions:
+The interactive tool accepts `sender`, `exporter`, or `admin`. Choose `admin` when one identity
+should send and export using the same key. Exporter-only keys remain supported for automation.
 
 | Sender value | Exporter value |
 |---|---|
@@ -143,7 +262,7 @@ the sender procedure with these substitutions:
 | `senders.htpasswd` | `exporters.htpasswd` |
 | `.senders.htpasswd.upload` | `.exporters.htpasswd.upload` |
 
-Do not put the same plaintext key in both files.
+Each key belongs in one scope file; admin permissions are recognized without duplicating the key.
 
 ## 4. Verify a sender key without writing data
 
@@ -346,7 +465,8 @@ Export is a privileged, state-changing operation. It compares every pending LIVE
 batched quote request, writes `account,symbol,target`, and consumes the pending set only after the
 CSV write succeeds. Do not use export to test a credential.
 
-The application requires quote timestamps within the approved 5,400-second after-close window. A
+Every export makes a new no-cache quote request. The response must have been fetched within 30
+seconds and its market timestamp must be within the approved 5,400-second after-close window. A
 missing/stale quote fails the whole export and consumes nothing.
 
 ```bash
