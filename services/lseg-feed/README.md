@@ -121,7 +121,7 @@ With `LSEG_AUTO_RESOLVE_FLEX=1`:
 5. `PriceStore.replace_symbols()` installs the merged map and discards quotes for removed/changed contracts.
 6. The worker subscribes to the resulting RICs.
 
-This resolver excludes many options, warrants, ambiguous listings, and unverified securities rather than inferring a potentially wrong price. It logs unresolved symbols. The mapping is **refreshed on the next session connection**, not continuously as holdings change throughout an active session. Symbol conversion requires permission to use LSEG discovery.
+This resolver excludes many options, warrants, ambiguous listings, and unverified securities rather than inferring a potentially wrong price. Add those to `LSEG_SYMBOLS` by hand: tickers with a space use a dot (`BRK.B=/BRKb` for IBKR `BRK B`), listed options the OCC symbol without spaces (`IWM261120P00280000=/IWMW202628000.U`). It logs unresolved symbols. The mapping is **refreshed on the next session connection**, not continuously as holdings change throughout an active session. Symbol conversion requires permission to use LSEG discovery.
 
 If automatic discovery is disabled or an EDP connection has not yet been established, the configured `LSEG_SYMBOLS` mapping is used.
 

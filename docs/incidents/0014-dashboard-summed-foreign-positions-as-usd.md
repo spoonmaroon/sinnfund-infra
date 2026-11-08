@@ -22,6 +22,7 @@ Parse `fx_rate_to_base` and convert every total, account and sector sum to USD w
 ## Prevention / follow-ups
 - [x] Unit tests for FX conversion, weekend day change, close-only rows and new positions.
 - [ ] Model FX moves in risk (ADR-0029 follow-up).
+- [x] 2026-11-08 regression: an off-hours manual LSEG refresh stamped quotes on Sunday, which read as a new session and zeroed day change for every Nov 6 position. Weekend and pre-open timestamps now count as the last session (`session_date()`, test in `tests/test_day_change.py`).
 
 ## Links
 ADR-0027, `services/flex-web-live/portfolio_api.py`.

@@ -49,6 +49,12 @@ default order on the third.
   statement's close, so weekends show the last session's move and close-only
   foreign listings still get a day change. Rows: `previous_close_price`,
   `day_change_price`, `day_change_pct`, `day_change_value` (USD), `day_change_basis`.
+  A quote stamped on a weekend or before the 09:30 ET open counts as the last
+  session's, so an off-hours feed refresh does not zero the day change
+  (`session_date()`; exchange holidays are not rolled back yet).
+- **Tickers with a space.** The LSEG feed cannot key a ticker with a space, so
+  stocks are looked up with a dot (IBKR `BRK B` → feed `BRK.B=/BRKb`) and listed
+  options without spaces (`IWM261120P00280000`).
 - **Net liquidation value.** Positions in USD plus each account's
   `CashReportCurrency[currency=BASE_SUMMARY].endingCash`. It excludes accruals and
   is not official NAV (INC-0007, ADR-0028). Accounts with cash but no positions
