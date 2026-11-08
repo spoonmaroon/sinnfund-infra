@@ -3,7 +3,7 @@
 - **Event period:** Stage 3 last succeeded 2026-10-24 (report date 2026-10-22); failed 2026-10-30 19:41 UTC; history refresh failed 2026-11-07 11:30–11:36 UTC
 - **Reported / detected:** 2026-11-08 while planning the Risk management tab
 - **Category:** Operations / data freshness
-- **Status:** Open — fix script written, needs an admin; Stage 1–4 retired by ADR-0029
+- **Status:** Mitigated 2026-11-08 — fix script run; history API live on 8092; Stage 1–4 retired by ADR-0029
 - **Severity / audience impact:** Medium — no current VaR from the old pipeline; the server price cache cannot feed the new risk job
 - **Evidence level:** systemd state, unit files, code reading; logs not readable by operator accounts
 - **Owner:** Server admin (sudo) with dashboard maintainers
@@ -23,11 +23,13 @@ History refresh: **unconfirmed** (likely a few failing symbols). Stage 3: wrong 
 - `deploy/risk-pipeline/fix-risk-pipeline.sh` (staged at `~enoch/fix-risk-pipeline.sh` on sinnfund) prints the refresh failure and failing symbols, installs `lseg-history-api` with the corrected venv path, and runs a refresh. Since 2026-11-08 it also adds the fund's five listed options to the delayed feed (step 5; backs up `lseg-symbols.env` first). Not yet run.
 
 ## Prevention / follow-ups
-- [ ] Admin runs `sudo bash ~enoch/fix-risk-pipeline.sh` and records the failing symbols.
-- [ ] Make the refresh fail only when most symbols fail, and report per-symbol errors.
+- [x] 2026-11-08: ran `sudo bash ~enoch/fix-risk-pipeline.sh`. Failing symbols: CCXI (no longer held) and TCBI.K (Texas Stock Exchange RIC, no daily history); 318 of 320 refreshed.
+- [x] The refresh now fails only when most symbols fail (script step 1b); per-symbol errors stay in `sync_state`.
 - [ ] Grant operators `systemctl start/restart` and `journalctl -u` for `lseg-history-refresh` and `lseg-history-api`.
 - [ ] Point `risk_job.py` at `127.0.0.1:8092` once the API is up.
-- [ ] After step 5: confirm the option RICs return prices, and remove expired options (IWM expires 2026-11-20).
+- [x] Option RICs confirmed: all five return LSEG quotes. This needed a feed fix: with `LSEG_AUTO_RESOLVE_FLEX=1` the resolved map replaced `LSEG_SYMBOLS`, so it is now merged over it (`services/lseg-feed/feed_api.py`). Coverage went from 287 to 361 symbols.
+- [ ] Remove expired options from `lseg-symbols.env` (IWM expires 2026-11-20).
+- [ ] Map TCBI's history to a RIC with daily data, or drop it from the list.
 
 ## Links
 ADR-0012, ADR-0029, ADR-0030, INC-0005.

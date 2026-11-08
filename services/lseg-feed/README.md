@@ -117,8 +117,9 @@ With `LSEG_AUTO_RESOLVE_FLEX=1`:
 1. Once an EDP session opens, the worker finds the newest dated archive directory under `FLEX_ARCHIVE_DIR`.
 2. `flex_lseg_ric.py` reads `SUMMARY`-level `OpenPosition` records.
 3. LSEG symbol conversion returns candidate RIC mappings, checking available ticker, ISIN, asset-category, and listing data.
-4. `PriceStore.replace_symbols()` installs the resolved map and discards quotes for removed/changed contracts.
-5. The worker subscribes to the resulting RICs.
+4. The resolved map is merged over `LSEG_SYMBOLS` (resolved RICs win on overlap), so the configured list adds what the resolver skips (listed options, manual overrides) and keeps holdings of accounts IBKR left out of a partial statement. Before 2026-11-08 the resolved map replaced `LSEG_SYMBOLS` entirely, which dropped the configured options and, after the partial 2026-11-06 file, cut coverage from 287 to 235 symbols.
+5. `PriceStore.replace_symbols()` installs the merged map and discards quotes for removed/changed contracts.
+6. The worker subscribes to the resulting RICs.
 
 This resolver excludes many options, warrants, ambiguous listings, and unverified securities rather than inferring a potentially wrong price. It logs unresolved symbols. The mapping is **refreshed on the next session connection**, not continuously as holdings change throughout an active session. Symbol conversion requires permission to use LSEG discovery.
 
