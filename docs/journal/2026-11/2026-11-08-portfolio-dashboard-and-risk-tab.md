@@ -20,7 +20,7 @@
 - **Risk:** found the Stage 1–4 VaR pipeline stuck since Oct 22 (INC-0015). Replaced it with a Riskfolio-Lib job in a separate venv (ADR-0029). Prices came from a two-year backfill with the operator's own LSEG login, using ISIN lookup for stocks outside the feed's symbol map (ADR-0030); coverage went from 89% to 97% of gross. yfinance was installed, then removed at the fund's request.
 - **Ingest:** deployed the partial-statement retry from commit `4a647a9`; it re-downloads Nov 6 on the next timer run.
 - **Options and trades:** options got their own group and their underlying's sector; option repricing from LSEG is ready in flex-web-live and waits on the feed (fix script step 5). Trade history (863 executions from the Flex `Trade` rows) is built but hidden behind `TRADE_LOG=1`.
-- **Kept apart on review:** the landing page stays at `/` (no redirect) and `/close/` is again the separate close-only dashboard, for debugging and fallback; its landing card was removed.
+- **Kept apart on review:** the landing page stays at `/` (no redirect) and `/close/` is again the separate close-only dashboard, for debugging and fallback; its landing card was removed. Later the same day the landing page's boot animation was removed at the fund's request, and the Prediction Signals card went live, linking to the GitHub quick start from "Save your sender key" (status from `/prediction/openapi.json`; the API has no `/healthz`).
 - **Access limits met:** operator sudo covers only five service restarts (exact `sudo -n /usr/bin/systemctl restart <unit>.service` form). Nginx, `/var/www`, `lseg-history` and the Stage units need an admin; `deploy/risk-pipeline/fix-risk-pipeline.sh` and the nginx root redirect are staged for one.
 
 ## Validation
