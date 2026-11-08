@@ -1,10 +1,11 @@
 server {
     server_name sinnfund.jkoh.dev;
 
-    # Home page is the portfolio dashboard.
+    # Landing page
     location = / {
-        return 302 /live/;
-    }
+	    root /var/www/sinnfund;
+	    try_files /index.html =404;
+	}
 
     # Previous-day-close dashboard
     location = /close {

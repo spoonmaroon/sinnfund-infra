@@ -20,6 +20,7 @@
 - **Risk:** found the Stage 1–4 VaR pipeline stuck since Oct 22 (INC-0015). Replaced it with a Riskfolio-Lib job in a separate venv (ADR-0029). Prices came from a two-year backfill with the operator's own LSEG login, using ISIN lookup for stocks outside the feed's symbol map (ADR-0030); coverage went from 89% to 97% of gross. yfinance was installed, then removed at the fund's request.
 - **Ingest:** deployed the partial-statement retry from commit `4a647a9`; it re-downloads Nov 6 on the next timer run.
 - **Options and trades:** options got their own group and their underlying's sector; option repricing from LSEG is ready in flex-web-live and waits on the feed (fix script step 5). Trade history (863 executions from the Flex `Trade` rows) is built but hidden behind `TRADE_LOG=1`.
+- **Kept apart on review:** the landing page stays at `/` (no redirect) and `/close/` is again the separate close-only dashboard, for debugging and fallback; its landing card was removed.
 - **Access limits met:** operator sudo covers only five service restarts (exact `sudo -n /usr/bin/systemctl restart <unit>.service` form). Nginx, `/var/www`, `lseg-history` and the Stage units need an admin; `deploy/risk-pipeline/fix-risk-pipeline.sh` and the nginx root redirect are staged for one.
 
 ## Validation
@@ -33,7 +34,7 @@
 | Load test, 30 viewers × 3 | no errors | 720 requests, 0 errors, p50 ≤ 1.1 s | Pass |
 | Fund VaR vs retired Stage 3 (Oct 22) | same order of magnitude | $57k vs $65k | Pass |
 
-**Intentionally not handled:** options/warrants in risk; FX moves in risk; official NAV/TWR; root redirect and LSEG history service (need sudo); daily risk schedule (user crontab not yet installed).
+**Intentionally not handled:** options/warrants in risk; FX moves in risk; official NAV/TWR; LSEG history service (needs sudo); daily risk schedule (user crontab not yet installed).
 
 ## What I learned — my own words
 
@@ -43,5 +44,5 @@
 
 ## Follow-up and evidence
 
-- **Next actions:** admin runs `fix-risk-pipeline.sh` (now also adds option prices) and installs the nginx redirect; add the NAV fields to the Flex query; install the risk crontab; confirm the Nov 10 ingest replaces the Nov 6 partial; name the two accounts missing from the fund sheet; merge the ingest branch.
+- **Next actions:** admin runs `fix-risk-pipeline.sh` (now also adds option prices) ; add the NAV fields to the Flex query; install the risk crontab; confirm the Nov 10 ingest replaces the Nov 6 partial; name the two accounts missing from the fund sheet; merge the ingest branch.
 - **Evidence:** deploy backups under `/opt/flex-web-live/deploy-backups/` and `/opt/flex-ingest/deploy-backups/`.

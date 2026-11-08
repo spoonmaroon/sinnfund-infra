@@ -5,9 +5,9 @@ archive, reprices stocks from one cached LSEG snapshot, and serves both the
 dashboard UI and its JSON API. It never writes to the archives and exposes no
 write endpoints.
 
-Public routes: `https://sinnfund.jkoh.dev/live/` (primary) and `/close/`, which
-`services/flex-web` proxies to this service unchanged. A redirect from the site
-root to `/live/` is prepared in `deploy/nginx/` but needs an admin to install.
+Public route: `https://sinnfund.jkoh.dev/live/`, linked from the landing page at
+`/`. The separate close-only dashboard at `/close/` (`services/flex-web`) stays
+live for debugging and as a fallback; it is not linked from the landing page.
 
 ## Dashboard pages
 

@@ -65,14 +65,14 @@ credentials remain outside Git. Repository structure does not determine deployme
                 /var/www/sinnfund/index.html
 ```
 
-The ingestion service downloads and archives Flex XML reports, keeping statements with excluded accounts aside as `.partial` and retrying them (ADR-0031). `flex-web-live` serves the portfolio dashboard and API: it reads the archives without modifying them, reprices from the localhost-only LSEG API, and falls back to Flex closing marks when suitable quotes are unavailable. `flex-web` is now a pass-through to it, so `/close/` and `/live/` show the same dashboard. The prediction API is a separate application, not an authorization path for trade execution.
+The ingestion service downloads and archives Flex XML reports, keeping statements with excluded accounts aside as `.partial` and retrying them (ADR-0031). `flex-web-live` serves the portfolio dashboard and API: it reads the archives without modifying them, reprices from the localhost-only LSEG API, and falls back to Flex closing marks when suitable quotes are unavailable. `flex-web` stays a separate close-only dashboard at `/close/` (statement prices, no LSEG) for debugging and fallback; the landing page at `/` links to `/live/`. The prediction API is a separate application, not an authorization path for trade execution.
 
 ## Components
 
 | Repository directory | Purpose | Production location | systemd unit | Listener / public route |
 |---|---|---|---|---|
 | `services/flex-ingest/` | Scheduled IBKR Flex retrieval and raw XML archiving | `/opt/flex-ingest/` | `flex-ingest.service`, `flex-ingest.timer` | No HTTP listener |
-| `services/flex-web/` | Compatibility proxy to `flex-web-live` | `/opt/flex-web/` | `flex-web.service` | `127.0.0.1:8001` → `/close/` |
+| `services/flex-web/` | Close-only dashboard (statement prices; debugging and fallback) | `/opt/flex-web/` | `flex-web.service` | `127.0.0.1:8001` → `/close/` |
 | [`services/flex-web-live/`](services/flex-web-live/README.md) | Portfolio dashboard (Dashboard, Positions, Sectors, Risk management) and read-only API | `/opt/flex-web-live/` | `flex-web-live.service` | `127.0.0.1:8002` → `/live/` |
 | [`services/flex-web-live/risk/`](services/flex-web-live/risk/README.md) | Riskfolio-Lib VaR/ES job writing `risk/latest.json` | `/opt/flex-web-live/risk/` (`risk-venv`) | none yet (user crontab planned) | Served via `/live/api/v1/risk` |
 | `services/lseg-feed/` | LSEG session, RIC normalization, local pricing API | `/opt/lseg-feed/` | `lseg-feed.service` | `127.0.0.1:8091` (internal only) |
