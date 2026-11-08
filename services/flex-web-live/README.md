@@ -13,7 +13,7 @@ live for debugging and as a fallback; it is not linked from the landing page.
 
 | Page | What it shows |
 |---|---|
-| Dashboard | Net liquidation value (positions + cash), unrealized P&L, day change, accounts table (NLV, % allocation, positions, cash, day change, P&L), sector allocation donut. Portfolio history is off until IBKR sends daily NAV. |
+| Dashboard | Net liquidation value (positions + cash), unrealized P&L, P&L year to date vs the S&P 500, day change, accounts table (NLV, % allocation, positions, cash, day change, P&L), sector allocation donut. Portfolio history is off until IBKR sends daily NAV. |
 | Positions | Every holding with price, day change, market value, cost, gain/loss and price source; expandable tax lots; grouping, filters and sortable columns. |
 | Sectors | Gross exposure, net value, day change and unrealized P&L per sector; sortable columns; holdings per sector. |
 | What if | Basket of proposed trades (typed, pasted from a spreadsheet or a CSV) and their effect on fund and account risk; see `risk/README.md`. |
@@ -32,6 +32,7 @@ default order on the third.
 | `GET /api/v1/report` | Every position and tax lot, plus `cash` by account and `carried_forward` |
 | `GET /api/v1/positions` | Paginated position rows (`q`, `account`, `offset`, `limit` ≤ 250) |
 | `GET /api/v1/sectors` | Symbol → sector map (`sectors.json`) |
+| `GET /api/v1/ytd` | Fund P&L year to date and the S&P 500 (IVV) over the same period |
 | `GET /api/v1/history` | `{"available": false}` until the Flex archive carries daily NAV totals |
 | `GET /api/v1/risk` | Latest risk report written by `risk/risk_job.py` |
 | `POST /api/v1/risk/whatif` | Pre-trade check for a basket: `{"trades": [{symbol, quantity, account}]}`; risk before and after (see `risk/README.md`) |
@@ -74,6 +75,14 @@ default order on the third.
   carries them, keyed by the OCC symbol without spaces (`IWM261120P00280000`);
   `deploy/risk-pipeline/fix-risk-pipeline.sh` step 5 adds the current five (needs
   an admin). Warrants stay on the statement price.
+- **P&L year to date** = today's NLV − NLV at the last close of last year − money
+  moved in or out since (deposits/withdrawals and transfers; transfers between the
+  fund's own accounts cancel). The year-start statement and the Jan 1 → first-archive
+  flows come from one-off Flex pulls (`ytd/pull_year_start.py <year> <day before the
+  first daily archive>`, run as `svc-flex`, saved to `/var/lib/flex-ingest/flex/ytd/<year>/`);
+  later flows come from each daily archive's cash report. The % uses a simple Dietz base
+  (year-start NLV + half the net flows). The S&P figure is IVV's price change from the
+  LSEG history service, without dividends. 2026: start $6,020,028, net flows −$6,500.
 - **Sectors** come from `sectors.json`, rebuilt with
   `python3 build_sectors.py <saved /api/v1/report response>`.
 

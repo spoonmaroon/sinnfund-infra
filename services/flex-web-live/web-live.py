@@ -18,13 +18,15 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, read_trades, reprice
+from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, read_flows, read_trades, reprice
 from whatif import what_if
 from portfolio_api import (
     ReportCache,
     add_day_change,
     carry_forward,
+    fx,
     history_series,
+    number,
     portfolio_summary,
     positions_page,
     price_validation_summary,
@@ -140,9 +142,45 @@ def load_trades() -> dict:
     return {"trades": sorted(unique.values(), key=lambda t: t["date_time"], reverse=True)}
 
 
+YTD_DIR = ARCHIVE_DIR.parent / "ytd"  # written once a year by ytd/pull_year_start.py
+HISTORY_URL = os.environ.get("LSEG_HISTORY_URL", "http://127.0.0.1:8092")
+
+
+def sp500_ytd(year: str) -> dict | None:
+    """IVV (S&P 500 ETF) price change since the last close of the previous year."""
+    try:
+        prices = requests.get(f"{HISTORY_URL}/history/IVV", params={"limit": 400}, timeout=5).json()["prices"]
+    except (requests.RequestException, ValueError, KeyError):
+        return None
+    base = [p for p in prices if p["date"] < f"{year}-01-01"]
+    if not base or prices[-1]["date"] < f"{year}-01-01":
+        return None
+    return {"symbol": "IVV", "from": base[-1]["date"], "to": prices[-1]["date"],
+            "pct": round((prices[-1]["close"] / base[-1]["close"] - 1) * 100, 2)}
+
+
+def load_ytd() -> dict:
+    """Year-start NLV and money moved in or out since, for P&L year to date."""
+    year = latest_date(ARCHIVE_DIR)[:4]
+    folder = YTD_DIR / year
+    if not (folder / "start.xml.gz").is_file() or not (folder / "flows.xml.gz").is_file():
+        return {"available": False, "reason": f"Run ytd/pull_year_start.py {year} to fetch the year-start statement."}
+    positions, _, cash = read_archives([folder / "start.xml.gz"])
+    start = sum(number(c) for c in cash.values()) + sum(number(p["market_value"]) * fx(p) for p in positions)
+    flows_until = re.search(rb'toDate=["\'](\d{8})', gzip.open(folder / "flows.xml.gz").read(2000))[1].decode()
+    flows = read_flows([folder / "flows.xml.gz"])
+    days = sorted(p.name for p in ARCHIVE_DIR.iterdir() if p.is_dir() and re.fullmatch(r"\d{8}", p.name) and p.name > flows_until)
+    for day in days:
+        for account, amount in read_flows(archive_files(day)).items():
+            flows[account] = flows.get(account, 0.0) + amount
+    return {"available": True, "year": year, "start_nlv": float(start), "net_flows": sum(flows.values()),
+            "flows_through": days[-1] if days else flows_until, "sp500": sp500_ytd(year)}
+
+
 # Statements arrive once a day, so an hour-old parse is still current.
 history_cache = ReportCache(load_history, ttl_seconds=3600)
 trades_cache = ReportCache(load_trades, ttl_seconds=3600)
+ytd_cache = ReportCache(load_ytd, ttl_seconds=3600)
 app = FastAPI(
     title="Sinn Fund Portfolio API",
     version="1.0.0",
@@ -193,6 +231,7 @@ def index():
             "/api/v1/sectors",
             "/api/v1/prices/validation",
             "/api/v1/risk",
+            "/api/v1/ytd",
             "POST /api/v1/risk/whatif {trades: [{symbol, quantity, account}]}",
             "/healthz",
         ],
@@ -242,6 +281,18 @@ def trades(request: Request):
     if not TRADE_LOG:
         return JSONResponse({"detail": "Not Found"}, status_code=404)
     return shared_json(request, "trades", trades_cache.get(), lambda data: data)
+
+
+@app.get("/api/v1/ytd")
+def ytd():
+    data = ytd_cache.get()
+    if not data["available"]:
+        return data
+    nlv = portfolio_summary(report_cache.get())["totals"]["net_liquidation_value"]
+    pnl = nlv - data["start_nlv"] - data["net_flows"]
+    # Simple Dietz: flows count as if they arrived mid-period (they are small here).
+    base = data["start_nlv"] + data["net_flows"] / 2
+    return {**data, "nlv": nlv, "pnl": round(pnl, 2), "pnl_pct": round(pnl / base * 100, 2) if base > 0 else None}
 
 
 RISK_FILE = HERE / "risk" / "latest.json"

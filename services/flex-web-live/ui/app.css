@@ -25,3 +25,4 @@
 @media(max-width:700px){.wi-head,.wi-row{grid-template-columns:22px 1fr 1fr 28px}.wi-head span:nth-child(4),.wi-row input:nth-of-type(3){grid-column:2/4}}
 .wi-row input::placeholder{color:#b5bcc8}.wi-row:not(:first-child) input::placeholder{color:transparent}.wi-drop-hint{margin:4px 20px 0;max-width:820px;padding:10px 12px;border:1px dashed #cfd5dd;border-radius:8px;color:var(--muted);font-size:12px;text-align:center}.wi-dropping .wi-drop-hint{border-color:#0875a5;color:#0875a5;background:#f0f8fc}
 .wi-row input.wi-invalid{border-color:var(--red);background:#fff5f5}
+.stats.five{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:1280px){.stats.five{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:700px){.stats.five{grid-template-columns:1fr}}

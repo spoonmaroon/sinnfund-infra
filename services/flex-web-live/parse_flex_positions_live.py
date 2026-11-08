@@ -142,6 +142,26 @@ def read_archives(files: list[Path]) -> tuple[list[dict], list[dict], dict[str, 
     return positions, lots, accounts
 
 
+FLOW_FIELDS = ("depositWithdrawals", "accountTransfers", "internalTransfers")
+
+
+def read_flows(files: list[Path]) -> dict[str, float]:
+    """Money moved in (+) or out (-) of each account over the statement period, in USD base.
+
+    Transfers between the fund's own accounts cancel out when summed across accounts.
+    """
+    flows: dict[str, float] = {}
+    for path in files:
+        with gzip.open(path, "rb") as stream:
+            root = ET.parse(stream).getroot()
+        for statement in root.iter("FlexStatement"):
+            for cash in statement.findall("./CashReport/CashReportCurrency"):
+                if cash.get("currency") == "BASE_SUMMARY":
+                    account = statement.get("accountId", "")
+                    flows[account] = flows.get(account, 0.0) + sum(float(cash.get(f) or 0) for f in FLOW_FIELDS)
+    return flows
+
+
 TRADE_FIELDS = {
     "account_id": "accountId",
     "trade_date": "tradeDate",

@@ -29,7 +29,7 @@ def attrs(**values):
     return " ".join(f"{key}={quoteattr(str(value))}" for key, value in values.items())
 
 
-def write_day(root: Path, date: str, holdings: dict, trades=(), cash="1000"):
+def write_day(root: Path, date: str, holdings: dict, trades=(), cash="1000", deposit="0", folder=None):
     """holdings: {symbol: (quantity, price)}; trades: [(transaction_id, symbol, side, quantity, price)]."""
     rows = "".join(
         f"<OpenPosition {attrs(accountId='U1', conid=symbol, symbol=symbol, description=symbol, assetCategory='STK', currency='USD', fxRateToBase=1, side='Long', position=qty, multiplier=1, markPrice=price, positionValue=qty * price, costBasisMoney=qty * 10, fifoPnlUnrealized=qty * (price - 10), reportDate=date, levelOfDetail='SUMMARY')}/>"
@@ -39,10 +39,11 @@ def write_day(root: Path, date: str, holdings: dict, trades=(), cash="1000"):
         for n, (tid, symbol, side, qty, price) in enumerate(trades))
     xml = (f"<FlexQueryResponse><FlexStatements><FlexStatement accountId='U1' fromDate='{date}' toDate='{date}'>"
            f"<OpenPositions>{rows}</OpenPositions><Trades>{fills}</Trades>"
-           f"<CashReport><CashReportCurrency currency='BASE_SUMMARY' endingCash='{cash}'/></CashReport>"
+           f"<CashReport><CashReportCurrency currency='BASE_SUMMARY' endingCash='{cash}' depositWithdrawals='{deposit}' accountTransfers='0' internalTransfers='0'/></CashReport>"
            "</FlexStatement></FlexStatements></FlexQueryResponse>")
-    (root / date).mkdir()
-    (root / date / "main.xml.gz").write_bytes(gzip.compress(xml.encode()))
+    path = root / date / "main.xml.gz" if folder is None else root / folder
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(gzip.compress(xml.encode()))
 
 
 class PositionChangeTests(unittest.TestCase):
@@ -51,12 +52,13 @@ class PositionChangeTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         for target, value in [("ARCHIVE_DIR", self.root), ("reprice", lambda positions, lots: None),
-                              ("get_lseg_last_snapshot_at", lambda: None)]:
+                              ("get_lseg_last_snapshot_at", lambda: None), ("YTD_DIR", self.root / "ytd"),
+                              ("sp500_ytd", lambda year: None)]:
             patcher = patch.object(web_live, target, value)
             patcher.start()
             self.addCleanup(patcher.stop)
         # Every request re-reads the archive, as the 30 s cache does once it expires.
-        for cache in (web_live.report_cache, web_live.trades_cache):
+        for cache in (web_live.report_cache, web_live.trades_cache, web_live.ytd_cache):
             patcher = patch.object(cache, "ttl_seconds", 0)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -116,6 +118,18 @@ class PositionChangeTests(unittest.TestCase):
         with patch.object(web_live, "TRADE_LOG", True):
             self.assertEqual(len(self.get("/api/v1/trades")["trades"]), 1)
 
+
+    def test_ytd_pnl_excludes_money_moved_in(self):
+        ytd = self.root / "ytd"
+        write_day(ytd, "20251231", {"AAA": (10, 10)}, cash="900", folder="2026/start.xml.gz")  # $1,000 NLV
+        write_day(ytd, "20261008", {"AAA": (10, 10)}, deposit="500", folder="2026/flows.xml.gz")  # +$500 put in
+        write_day(self.root, "20261102", {"AAA": (10, 12)}, cash="1500")   # $120 + $1,500 = $1,620
+        write_day(self.root, "20261103", {"AAA": (10, 13)}, cash="1500", deposit="0")  # $1,630
+        ytd_result = self.get("/api/v1/ytd")
+        self.assertEqual(ytd_result["start_nlv"], 1000.0)
+        self.assertEqual(ytd_result["net_flows"], 500.0)
+        self.assertEqual(ytd_result["pnl"], 130.0)  # 1,630 - 1,000 - 500
+        self.assertEqual(ytd_result["pnl_pct"], 10.4)  # 130 / (1,000 + 500/2)
 
 if __name__ == "__main__":
     unittest.main()
