@@ -55,7 +55,8 @@ five worst days.
 - `GET /api/v1/risk/whatif?symbol=&quantity=&account=` is read-only; nothing is
   stored. Symbols without LSEG daily history (and options/warrants) are refused
   with a reason.
-- Limits: the trade is priced at the last LSEG close and assumed to be in USD;
+- Limits: the trade is priced at the last LSEG close, converted to USD with
+  IBKR's rate for held foreign listings (unheld foreign listings count as USD);
   the data is as fresh as the last risk job run; liquidity (days to exit) and
   factor exposure are not covered yet (no volume or factor model stored).
 

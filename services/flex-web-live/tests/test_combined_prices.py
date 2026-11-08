@@ -84,3 +84,15 @@ class OptionPriceTests(unittest.TestCase):
         self.assertEqual(option["market_value"], "22000.00000000")  # 20 contracts x 100 x $11 midpoint
         self.assertEqual(option["quote_ric"], "/IWMW202628000.U")
         self.assertEqual(warrant["price_validation"], "close_only")
+
+    def test_share_class_with_a_space_uses_the_dotted_feed_key(self):
+        from parse_flex_positions_live import reprice
+        row = {"symbol": "BRK B", "asset_category": "STK", "currency": "USD", "quantity": "10",
+               "multiplier": "1", "mark_price": "570", "market_value": "5700", "unrealized_pnl": "0"}
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"snapshot_age_seconds": 10, "connected": True,
+                                      "quotes": {"BRK.B": {"price": 572, "ric": "/BRKb"}}}
+        with patch("parse_flex_positions_live.requests.get", return_value=response):
+            reprice([row], [])
+        self.assertEqual(row["delayed_mark_price"], "572")

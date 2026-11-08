@@ -7,7 +7,7 @@ import statistics
 import threading
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, time as clock, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Callable
 from zoneinfo import ZoneInfo
@@ -43,7 +43,13 @@ def session_date(timestamp: str) -> str:
         return ""
     if moment.tzinfo is None:
         return ""
-    return moment.astimezone(NEW_YORK).strftime("%Y%m%d")
+    local = moment.astimezone(NEW_YORK)
+    # A quote taken before the open or on a weekend still shows the last session's close.
+    # shortcut: exchange holidays are not rolled back; add a calendar if a holiday snapshot misleads.
+    day = local.date() - timedelta(days=1) if local.time() < clock(9, 30) else local.date()
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day.strftime("%Y%m%d")
 
 
 def carry_forward(previous_rows: list[dict], accounts: set[str], previous_date: str) -> list[dict]:

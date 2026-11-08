@@ -72,8 +72,8 @@ def what_if(data: dict, sectors: dict[str, str], symbol: str, quantity: float,
     if account and account not in data["nlv"]:
         raise ValueError(f"Unknown account {account}.")
     price = price or data["last_close"][symbol]
-    # shortcut: assumes a USD price; foreign listings would need IBKR's FX rate.
-    value = quantity * price
+    fx = data.get("fx_to_usd", {}).get(symbol, 1.0)  # listing currency -> USD (IBKR's rate)
+    value = quantity * price * fx
     days = len(data["dates"])
     market = returns.get(data.get("market", ""))
 
@@ -106,7 +106,8 @@ def what_if(data: dict, sectors: dict[str, str], symbol: str, quantity: float,
 
     out = {
         "as_of": data.get("as_of"), "scenarios": days,
-        "trade": {"symbol": symbol, "quantity": quantity, "price": round(price, 4), "value": round(value, 2),
+        "trade": {"symbol": symbol, "quantity": quantity, "price": round(price, 4), "fx_to_usd": fx,
+                  "value": round(value, 2),
                   "account": account or None, "sector": sectors.get(symbol, "Unclassified"),
                   "stand_alone_var_95": round(var_hist(trade, 0.05), 2)},
         "fund": compare(fund_book, sum(data["nlv"].values()) + 0.0),

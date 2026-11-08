@@ -286,6 +286,8 @@ def reprice(positions: list[dict], lots: list[dict]) -> None:
         symbol = row.get("symbol", "").upper()
         if row["asset_category"] == "OPT":
             symbol = symbol.replace(" ", "")  # feed keys are OCC symbols without padding: IWM261120P00280000
+        else:
+            symbol = symbol.replace(" ", ".")  # feed keys allow no spaces: IBKR "BRK B" is "BRK.B"
         quote = quotes.get(symbol)
 
         if not isinstance(quote, dict):

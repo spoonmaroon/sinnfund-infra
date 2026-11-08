@@ -22,8 +22,9 @@ SERVICE = Path(__file__).resolve().parents[1]
 AAA = [(-1) ** i * 0.01 * (1 + i % 7) for i in range(40)]
 DATA = {
     "as_of": "20261106", "market": "IVV", "dates": [f"2026-01-{i + 1:02d}" for i in range(40)],
-    "returns": {"AAA": AAA, "HEDGE": [-r for r in AAA], "IVV": [r / 2 for r in AAA]},
-    "last_close": {"AAA": 10.0, "HEDGE": 20.0, "IVV": 500.0},
+    "returns": {"AAA": AAA, "HEDGE": [-r for r in AAA], "IVV": [r / 2 for r in AAA], "JPY": AAA},
+    "last_close": {"AAA": 10.0, "HEDGE": 20.0, "IVV": 500.0, "JPY": 1000.0},
+    "fx_to_usd": {"JPY": 0.01},
     "exposure": {"U1": {"AAA": 1000.0}, "U2": {"AAA": 500.0}},
     "nlv": {"U1": 2000.0, "U2": 1000.0},
 }
@@ -53,6 +54,9 @@ class MathTests(unittest.TestCase):
         self.assertLessEqual(result["fund"]["trade_es_contribution"], 0)
         day = result["fund"]["worst_days"][0]
         self.assertAlmostEqual(day["before"] + day["trade"], day["after"], places=1)
+
+    def test_foreign_listing_is_valued_in_usd(self):
+        self.assertEqual(what_if(DATA, SECTORS, "JPY", 100)["trade"]["value"], 1000.0)  # 100 x ¥1,000 at 0.01
 
     def test_unknown_symbol_and_account_are_rejected_with_a_reason(self):
         with self.assertRaisesRegex(ValueError, "no LSEG daily price history"):

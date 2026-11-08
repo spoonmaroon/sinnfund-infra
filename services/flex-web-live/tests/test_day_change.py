@@ -23,6 +23,14 @@ class DayChangeTests(unittest.TestCase):
         self.assertEqual(position["day_change_pct"], "10.0000")
         self.assertEqual(position["day_change_value"], "100.00")
 
+    def test_weekend_or_pre_open_snapshot_is_not_a_new_session(self):
+        # Off-hours refresh on Sunday 2026-11-08 and Monday 08:00 ET: still Friday's session.
+        for stamp in ("2026-11-08T19:16:30+00:00", "2026-11-09T13:00:00+00:00"):
+            position = row(delayed_mark_price="110", quote_last_event_at=stamp)
+            add_day_change([position], PREVIOUS)
+            self.assertEqual(position["day_change_basis"], "close_vs_previous_close", stamp)
+            self.assertEqual(position["day_change_value"], "100.00")
+
     def test_market_open_shows_delayed_vs_statement_close(self):
         position = row(delayed_mark_price="121", quote_last_event_at="2026-11-09T15:00:00+00:00")
         add_day_change([position], PREVIOUS)

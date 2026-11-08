@@ -89,6 +89,7 @@ class RiskJobTests(unittest.TestCase):
         for key in ("var_95", "var_99", "es_97_5", "sp500_down_1pct"):
             self.assertAlmostEqual(before[key], fund[key], delta=1.0)  # returns stored to 6 decimals
         self.assertEqual(data["exposure"]["U2"], {"BBB": -1000.0})  # -5,000 + ¥400,000 at 0.01
+        self.assertEqual(data["fx_to_usd"], {"BBB": 0.01})
 
 
 if __name__ == "__main__":
