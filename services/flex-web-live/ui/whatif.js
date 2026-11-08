@@ -6,9 +6,9 @@ function wiRow(trade = {}) {
   const row = document.createElement("div");
   row.className = "wi-row";
   row.innerHTML = `<span class="wi-num"></span>
-    <input aria-label="Symbol" placeholder="NVDA" maxlength="40" autocomplete="off" value="${esc(trade.symbol || "")}">
-    <input aria-label="Quantity" placeholder="100" inputmode="decimal" value="${esc(trade.quantity || "")}">
-    <input aria-label="Account" placeholder="Fund only" list="wiAccounts" value="${esc(trade.account || "")}">
+    <input aria-label="Symbol" placeholder="e.g. NVDA" maxlength="40" autocomplete="off" value="${esc(trade.symbol || "")}">
+    <input aria-label="Quantity" placeholder="100 or -50" inputmode="decimal" value="${esc(trade.quantity || "")}">
+    <input aria-label="Account" placeholder="Optional" list="wiAccounts" value="${esc(trade.account || "")}">
     <button class="wi-remove" type="button" aria-label="Remove row">×</button>`;
   return row;
 }
@@ -126,9 +126,11 @@ function wiRun() {
 }
 
 wiSetRows([]);
-namesLoaded.then(() => {
-  $("wiAccounts").innerHTML = Object.values(ACCOUNT_NAMES).sort().map((n) => `<option value="${esc(n)}"></option>`).join("");
-});
+// Every account with a statement, by fund-sheet name where there is one, otherwise by number.
+Promise.all([fetch("api/v1/portfolio").then((r) => r.json()), namesLoaded]).then(([p]) => {
+  const labels = (p.accounts || []).map((a) => ACCOUNT_NAMES[a.id] || a.id).sort((x, y) => x.localeCompare(y));
+  $("wiAccounts").innerHTML = labels.map((label) => `<option value="${esc(label)}"></option>`).join("");
+}).catch(() => {});
 $("wiRun").addEventListener("click", wiRun);
 $("wiAdd").addEventListener("click", () => { $("wiRows").appendChild(wiRow()); wiRenumber(); });
 $("wiClear").addEventListener("click", () => { wiSetRows([]); $("wiResult").innerHTML = ""; });
