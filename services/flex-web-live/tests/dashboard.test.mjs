@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 
 const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
-  + "\nreturn { wiParse, wiRender, wiAccountId };";
+  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -314,7 +314,8 @@ test("what-if results lead with before/after cards and list every trade and left
     basket: { net_value: 18664, gross_value: 18664, stand_alone_var_95: 770, es_contribution: 1160 },
     fund: { before: side(57205), after: side(57825) },
     accounts: [{ id: "U9000005", trades: 1, before: side(1000), after: side(1500) }],
-    sectors: [{ name: "Information Technology", before_pct: 14.96, after_pct: 15.25 }],
+    sectors: [{ name: "Information Technology", before_usd: 800000, after_usd: 818664, before_pct: 14.96, after_pct: 15.25 }],
+    gross_before: 5340000, gross_after: 5358664,
     worst_days: [{ date: "2025-04-04", before: -216627, trades: -1373, after: -218000 }],
   });
   const html = $("wiResult").innerHTML;
@@ -322,5 +323,20 @@ test("what-if results lead with before/after cards and list every trade and left
   assert.match(html, /Row 2 ZZZ: no LSEG daily price history/);
   assert.match(html, /<td>Quant<\/td><td class="num">1<\/td>\s*<td class="num">1,000<\/td><td class="num">1,500<\/td><td class="num">\+500<\/td>/);
   assert.match(html, /\+0.29 pts/);
+  assert.match(html, /\$800,000 · 14.96%/);
   assert.match(html, /-218,000/);
+});
+
+test("what-if will not run while a row is missing its quantity or symbol", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  const input = (value) => ({ value, invalid: false, classList: { toggle(_, on) { input.last = this; this.owner.invalid = on; } } });
+  const row = (...values) => {
+    const inputs = values.map((v) => { const i = input(v); i.classList.owner = i; return i; });
+    return { inputs, querySelectorAll: () => inputs };
+  };
+  const rows = [row("NVDA", "100", ""), row("GLD", "", ""), row("", "50", ""), row("AAPL", "abc", "Quant"), row("", "", "")];
+  $("wiRows").children = rows;
+  assert.deepEqual($.api.wiProblems(), ["Row 2: enter a quantity", "Row 3: enter a symbol", "Row 4: enter a quantity (a non-zero number)"]);
+  assert.deepEqual(rows.map((r) => r.inputs.slice(0, 2).map((i) => i.invalid)),
+    [[false, false], [false, true], [true, false], [false, true], [false, false]]);
 });

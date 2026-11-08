@@ -8,7 +8,7 @@ function wiRow(trade = {}) {
   row.innerHTML = `<span class="wi-num"></span>
     <input aria-label="Symbol" placeholder="e.g. NVDA" maxlength="40" autocomplete="off" value="${esc(trade.symbol || "")}">
     <input aria-label="Quantity" placeholder="100 or -50" inputmode="decimal" value="${esc(trade.quantity || "")}">
-    <input aria-label="Account" placeholder="Optional" list="wiAccounts" value="${esc(trade.account || "")}">
+    <input aria-label="Account" placeholder="All accounts" list="wiAccounts" value="${esc(trade.account || "")}">
     <button class="wi-remove" type="button" aria-label="Remove row">×</button>`;
   return row;
 }
@@ -83,7 +83,7 @@ function wiCard(label, before, after, money_ = true) {
 
 function wiRender(d) {
   const f = d.fund, b = d.basket;
-  const name = (id) => (id ? ACCOUNT_NAMES[id] || id : "Fund only");
+  const name = (id) => (id ? ACCOUNT_NAMES[id] || id : "All accounts");
   const rejected = d.rejected.length ? `<section class="wi-warning"><strong>${d.rejected.length} row${d.rejected.length === 1 ? "" : "s"} left out</strong>
     ${d.rejected.map((r) => `<span>Row ${r.row} ${esc(r.symbol || "(blank)")}: ${esc(r.reason)}</span>`).join("")}</section>` : "";
   const delta = (before, after) => { const c = Math.round(after - before); return `${c > 0 ? "+" : ""}${num.format(c)}`; };
@@ -94,7 +94,8 @@ function wiRender(d) {
   const accounts = d.accounts.map((a) => `<tr><td>${esc(name(a.id))}</td><td class="num">${a.trades}</td>
     <td class="num">${num.format(Math.round(a.before.var_95))}</td><td class="num">${num.format(Math.round(a.after.var_95))}</td><td class="num">${delta(a.before.var_95, a.after.var_95)}</td>
     <td class="num">${num.format(Math.round(a.before.es_97_5))}</td><td class="num">${num.format(Math.round(a.after.es_97_5))}</td><td class="num">${delta(a.before.es_97_5, a.after.es_97_5)}</td></tr>`).join("");
-  const sectors = d.sectors.map((s) => `<tr><td>${esc(s.name)}</td><td class="num">${num.format(s.before_pct)}%</td><td class="num">${num.format(s.after_pct)}%</td>
+  const sectors = d.sectors.map((s) => `<tr><td>${esc(s.name)}</td><td class="num">${money.format(s.before_usd)} · ${num.format(s.before_pct)}%</td>
+    <td class="num">${money.format(s.after_usd)} · ${num.format(s.after_pct)}%</td>
     <td class="num">${s.after_pct > s.before_pct ? "+" : ""}${num.format(Math.round((s.after_pct - s.before_pct) * 100) / 100)} pts</td></tr>`).join("");
   const worst = d.worst_days.map((w) => `<tr><td>${esc(dateLabel(w.date))}</td><td class="num">${signed(w.before)}</td><td class="num">${signed(w.trades)}</td><td class="num">${signed(w.after)}</td></tr>`).join("");
   $("wiAsOf").textContent = `Holdings ${dateLabel(d.as_of)} · ${d.scenarios} historical days`;
@@ -105,11 +106,31 @@ function wiRender(d) {
       <p class="sub">Net ${money.format(b.net_value)} · gross ${money.format(b.gross_value)} · the basket alone: VaR 95% ${money.format(b.stand_alone_var_95)} · share of the fund's new expected shortfall ${money.format(b.es_contribution)}</p></div></div>
       <div class="account-list"><table class="acct-table"><thead><tr><th>#</th><th>Symbol</th><th>Account</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Value</th><th class="num">Own VaR 95%</th><th class="num">Share of ES</th><th>Sector</th></tr></thead><tbody>${trades}</tbody></table></div></section>
     ${accounts ? `<section class="card accounts"><div class="card-head"><div><p class="kicker">Accounts</p><h2>Accounts affected</h2></div></div><div class="account-list"><table class="acct-table"><thead><tr><th>Account</th><th class="num">Trades</th><th class="num">VaR 95% before</th><th class="num">After</th><th class="num">Change</th><th class="num">ES before</th><th class="num">After</th><th class="num">Change</th></tr></thead><tbody>${accounts}</tbody></table></div></section>` : ""}
-    <section class="grid"><article class="card"><div class="card-head"><div><p class="kicker">Concentration</p><h2>Sector weights that change</h2><p class="return-pending">Share of the fund's gross exposure</p></div></div><div class="account-list"><table class="acct-table compact"><thead><tr><th>Sector</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead><tbody>${sectors}</tbody></table></div></article>
+    <section class="grid"><article class="card"><div class="card-head"><div><p class="kicker">Concentration</p><h2>Sectors traded</h2><p class="return-pending">Gross exposure and share of the fund (${money.format(d.gross_before)} → ${money.format(d.gross_after)} gross). Other sectors keep their dollars; their share shrinks as the book grows.</p></div></div><div class="account-list"><table class="acct-table compact"><thead><tr><th>Sector</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead><tbody>${sectors}</tbody></table></div></article>
     <article class="card"><div class="card-head"><div><p class="kicker">Stress</p><h2>Fund's worst days</h2><p class="return-pending">Today's book, the trades, and both together</p></div></div><div class="account-list"><table class="acct-table compact"><thead><tr><th>Day</th><th class="num">Book</th><th class="num">Trades</th><th class="num">Book with trades</th></tr></thead><tbody>${worst}</tbody></table></div></article></section>`;
 }
 
+// A row needs both a symbol and a numeric, non-zero quantity; blank account means all accounts.
+function wiProblems() {
+  const problems = [];
+  [...$("wiRows").children].forEach((row, i) => {
+    const [symbol, quantity] = [...row.querySelectorAll("input")];
+    const s = symbol.value.trim(), q = quantity.value.trim().replace(/[$,\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+    symbol.classList.toggle("wi-invalid", !s && !!q);
+    const badQty = !!s && (!q || !Number(q));
+    quantity.classList.toggle("wi-invalid", badQty);
+    if (!s && q) problems.push(`Row ${i + 1}: enter a symbol`);
+    if (badQty) problems.push(`Row ${i + 1}: enter a quantity${q ? " (a non-zero number)" : ""}`);
+  });
+  return problems;
+}
+
 function wiRun() {
+  const problems = wiProblems();
+  if (problems.length) {
+    $("wiResult").innerHTML = `<section class="wi-warning"><strong>Fix ${problems.length === 1 ? "this row" : "these rows"} first</strong>${problems.map((p) => `<span>${esc(p)}</span>`).join("")}</section>`;
+    return Promise.resolve();
+  }
   const trades = wiTrades().map((t) => ({ ...t, quantity: t.quantity.replace(/[$,\s]/g, ""), account: wiAccountId(t.account) }));
   if (!trades.length) {
     $("wiResult").innerHTML = `<section class="wi-warning">Add at least one trade: a symbol and a quantity.</section>`;
@@ -135,7 +156,7 @@ $("wiRun").addEventListener("click", wiRun);
 $("wiAdd").addEventListener("click", () => { $("wiRows").appendChild(wiRow()); wiRenumber(); });
 $("wiClear").addEventListener("click", () => { wiSetRows([]); $("wiResult").innerHTML = ""; });
 $("wiRows").addEventListener("click", (e) => { if (e.target.closest(".wi-remove")) { e.target.closest(".wi-row").remove(); wiRenumber(); } });
-$("wiRows").addEventListener("input", wiRenumber);
+$("wiRows").addEventListener("input", (e) => { e.target.classList.remove("wi-invalid"); wiRenumber(); });
 $("wiRows").addEventListener("keydown", (e) => { if (e.key === "Enter") wiRun(); });
 $("wiTemplate").addEventListener("click", () => {
   const link = document.createElement("a");

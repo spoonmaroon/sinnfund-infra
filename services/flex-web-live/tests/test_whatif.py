@@ -44,7 +44,7 @@ class MathTests(unittest.TestCase):
         after = [2000 * r for r in AAA]  # 50 x $10 more AAA
         self.assertAlmostEqual(result["fund"]["after"]["var_95"], round(var_hist(after, 0.05), 2))
         self.assertEqual(result["trades"][0]["value"], 500.0)
-        self.assertEqual(result["sectors"], [])  # all exposure stays in Tech: no weight changes
+        self.assertEqual([(s["name"], s["before_usd"], s["after_usd"]) for s in result["sectors"]], [("Tech", 1500.0, 2000.0)])
         self.assertEqual(result["accounts"], [])  # no account given: fund only
 
     def test_a_hedge_lowers_risk_and_has_negative_es_contribution(self):

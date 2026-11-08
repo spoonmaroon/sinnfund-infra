@@ -125,9 +125,12 @@ def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
 
     g_before, g_after = gross_by_sector(fund_book, sectors), gross_by_sector(add(fund_book, accepted), sectors)
     total_before, total_after = sum(g_before.values()) or 1, sum(g_after.values()) or 1
-    sector_rows = [{"name": name, "before_pct": round(g_before.get(name, 0.0) / total_before * 100, 2),
+    # Only sectors the trades touch: the rest keep their dollars and just shrink in share as the book grows.
+    traded = {leg["sector"] for leg in accepted}
+    sector_rows = [{"name": name, "before_usd": round(g_before.get(name, 0.0), 2), "after_usd": round(g_after.get(name, 0.0), 2),
+                    "before_pct": round(g_before.get(name, 0.0) / total_before * 100, 2),
                     "after_pct": round(g_after.get(name, 0.0) / total_after * 100, 2)}
-                   for name in sorted(set(g_before) | set(g_after))]
+                   for name in sorted(traded)]
     worst = sorted(range(days), key=fund_before.__getitem__)[:5]
     return {
         "as_of": data.get("as_of"), "scenarios": days,
@@ -145,7 +148,8 @@ def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
         "fund": {"before": risk(fund_before, sum(nlv.values()) + 0.0, market),
                  "after": risk(fund_after, sum(nlv.values()) + 0.0, market)},
         "accounts": accounts,
-        "sectors": [r for r in sector_rows if abs(r["after_pct"] - r["before_pct"]) >= 0.01],
+        "sectors": sector_rows,
+        "gross_before": round(total_before, 2), "gross_after": round(total_after, 2),
         "worst_days": [{"date": data["dates"][i], "before": round(fund_before[i], 2), "trades": round(basket[i], 2),
                         "after": round(fund_after[i], 2)} for i in worst],
     }
