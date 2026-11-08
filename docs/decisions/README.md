@@ -37,6 +37,7 @@ Architecture decisions for the SINN Fund platform, from portfolio reporting and 
 | [ADR-0029](./0029-riskfolio-risk-job-replaces-stage-pipeline.md) | Replace Stage 1–4 VaR with a Riskfolio-Lib risk job behind the dashboard | 2026-11-08 | Accepted — supersedes ADR-0015, ADR-0019 |
 | [ADR-0030](./0030-interim-price-history-from-operator-lseg-login.md) | Backfill risk prices with an operator's LSEG login until the server cache works | 2026-11-08 | Accepted — interim |
 | [ADR-0031](./0031-handle-partial-flex-statements.md) | Retry partial Flex statements and carry excluded accounts forward | 2026-11-08 | Accepted — deployed |
+| [ADR-0032](./0032-files-now-database-when-triggered.md) | Keep portfolio data in files; add Postgres/ClickHouse at named triggers | 2026-11-08 | Accepted — no database yet |
 
 ## How to maintain these records
 
