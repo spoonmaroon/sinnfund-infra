@@ -7,7 +7,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
-from risk_job import build_report  # noqa: E402
+from risk_job import build_report, scenario_data  # noqa: E402
+sys.path.insert(0, str(Path(__file__).parents[1]))
+from whatif import what_if  # noqa: E402
 
 DAYS = pd.bdate_range("2024-01-01", periods=301).strftime("%Y-%m-%d")
 
@@ -44,6 +46,7 @@ class RiskJobTests(unittest.TestCase):
             position("BBB", 400_000, fx="0.01", account="U2"),       # ¥400,000 = $4,000
             position("AAA 261120C00010000", 500, category="OPT"),
             position("NEW", 700), position("NOPE", 300), position("DEAD", 200)]}
+        self.report = report
         self.result = build_report(report, PRICES, {"AAA": "Tech"})
 
     def test_var_matches_sorted_scenario_losses(self):
@@ -77,6 +80,15 @@ class RiskJobTests(unittest.TestCase):
         worst = [d["pnl"] for d in self.result["worst_days"]]
         self.assertEqual(worst, sorted(worst))
         self.assertEqual(len(worst), 5)
+
+
+    def test_scenario_data_reproduces_the_report_for_the_what_if(self):
+        data = scenario_data(self.report, PRICES)
+        before = what_if(data, {}, "AAA", 1)["fund"]["before"]
+        fund = self.result["fund"]
+        for key in ("var_95", "var_99", "es_97_5", "sp500_down_1pct"):
+            self.assertAlmostEqual(before[key], fund[key], delta=1.0)  # returns stored to 6 decimals
+        self.assertEqual(data["exposure"]["U2"], {"BBB": -1000.0})  # -5,000 + ¥400,000 at 0.01
 
 
 if __name__ == "__main__":

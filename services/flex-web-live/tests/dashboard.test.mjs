@@ -18,7 +18,7 @@ function fakeElement() {
   return new Proxy(el, { get: (t, k) => (k in t ? t[k] : () => fakeElement()) });
 }
 
-async function render(report, sectors = { sectors: {} }, history = { points: [] }, risk = { available: false, reason: "not run" }, trades) {
+async function render(report, sectors = { sectors: {} }, history = { points: [] }, risk = { available: false, reason: "not run" }, extra = {}) {
   const elements = new Map();
   const byId = (id) => elements.get(id) ?? elements.set(id, fakeElement()).get(id);
   const responses = {
@@ -28,7 +28,7 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
     "api/v1/prices/validation": { coverage_pct: 100 },
     "api/v1/history": history,
     "api/v1/risk": risk,
-    ...(trades && { "api/v1/trades": trades }),
+    ...extra,
     "static/account-names.json": { U9000001: "Lifeboat", U9000002: "Tier One Acct", U9000004: "Factor Investing - Short Interest", U9000005: "Quant" },
   };
   const context = {
@@ -278,7 +278,38 @@ test("trade history lists executions with names and USD values once enabled", as
     { trade_date: "20261105", account_id: "U9000005", buy_sell: "SELL", symbol: "GDX", quantity: "-100",
       trade_price: "83.11", currency: "USD", fx_rate_to_base: "1", proceeds: "8311", realized_pnl: "3412.32" },
   ] };
-  const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined, trades);
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined, { "api/v1/trades": trades });
   assert.equal($("tradeLog").hidden, false);
   assert.match($("tradeList").innerHTML, /<td>Quant<\/td><td>SELL<\/td><td>GDX<\/td><td class="num">-100<\/td><td class="num">\$83.11<\/td><td class="num"><span class="">8,311<\/span><\/td><td class="num"><span class="">3,412<\/span>/);
+});
+
+test("what-if shows fund risk before and after a proposed trade", async () => {
+  const side = (v) => ({ var_95: v, var_99: v * 2, es_97_5: v * 2.1, sp500_down_1pct: -v / 2 });
+  const result = {
+    trade: { symbol: "NVDA", quantity: 100, price: 186.64, value: 18664, sector: "Information Technology",
+      account: null, stand_alone_var_95: 770 },
+    fund: { before: side(57196), after: side(57820), trade_es_contribution: 1160,
+      sector: { name: "Information Technology", weight_before_pct: 14.96, weight_after_pct: 15.25 },
+      worst_days: [{ date: "2025-04-04", before: -216294, trade: -1500, after: -217794 }] },
+  };
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined,
+    { "api/v1/risk/whatif?symbol=NVDA&quantity=100&account=": result });
+  $("wiSymbol").value = "NVDA";
+  $("wiQty").value = "100";
+  $("wiAccount").value = "";
+  await $("wiRun").handlers.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const html = $("wiResult").innerHTML;
+  assert.match(html, /Buy 100 NVDA<\/strong> at \$186.64/);
+  assert.match(html, /<td>VaR 95%<\/td><td class="num"><span class="">57,196<\/span><\/td><td class="num"><span class="">57,820<\/span><\/td><td class="num">\+624<\/td>/);
+  assert.match(html, /14.96% → 15.25% of gross/);
+  assert.match(html, /-217,794/);
+});
+
+test("what-if asks for a symbol and quantity before calling the server", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  $("wiSymbol").value = "NVDA";
+  $("wiQty").value = "0";
+  $("wiRun").handlers.click();
+  assert.match($("wiResult").innerHTML, /non-zero quantity/);
 });

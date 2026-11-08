@@ -33,6 +33,7 @@ REPORT_URL = os.environ.get("PORTFOLIO_REPORT_URL", "http://127.0.0.1:8002/api/v
 PRICES = Path(os.environ.get("RISK_PRICES", HERE / "prices.csv"))
 SECTORS = HERE.parent / "sectors.json"
 OUT = HERE / "latest.json"
+SCENARIOS = HERE / "scenarios.json"  # daily moves + holdings for the what-if check in web-live.py
 WINDOW = 500        # scenarios (trading days)
 MIN_HISTORY = 250   # a stock needs about a year of closes to be modelled
 MARKET = "IVV"      # S&P 500 proxy for the market-sensitivity line
@@ -88,8 +89,8 @@ def metrics(pnl: pd.Series, nlv: float) -> dict:
     }
 
 
-def build_report(report: dict, prices: pd.DataFrame, sectors: dict[str, str]) -> dict:
-    returns, short = returns_matrix(prices)
+def holdings(report: dict, returns: pd.DataFrame, short: dict) -> tuple[dict, dict, list]:
+    """Modelled USD exposure by (account, symbol), NLV by account, and excluded positions."""
     cash = {account: number(value) for account, value in report.get("cash", {}).items()}
     nlv = defaultdict(float, cash)
     exposure: dict[tuple[str, str], float] = defaultdict(float)
@@ -107,7 +108,12 @@ def build_report(report: dict, prices: pd.DataFrame, sectors: dict[str, str]) ->
             exposure[(account, symbol)] += value
             continue
         excluded.append({"account": account, "symbol": symbol, "value": round(value, 2), "reason": reason})
+    return exposure, nlv, excluded
 
+
+def build_report(report: dict, prices: pd.DataFrame, sectors: dict[str, str]) -> dict:
+    returns, short = returns_matrix(prices)
+    exposure, nlv, excluded = holdings(report, returns, short)
     held = pd.Series(exposure)  # index: (account, symbol)
     by_symbol = held.groupby(level=1).sum()
     symbols = list(by_symbol.index)
@@ -164,16 +170,37 @@ def build_report(report: dict, prices: pd.DataFrame, sectors: dict[str, str]) ->
     }
 
 
+def scenario_data(report: dict, prices: pd.DataFrame) -> dict:
+    """Inputs for a pre-trade what-if: every modelled symbol's daily moves, last close and the book."""
+    returns, short = returns_matrix(prices)
+    exposure, nlv, _ = holdings(report, returns, short)
+    book: dict[str, dict[str, float]] = defaultdict(dict)
+    for (account, symbol), value in exposure.items():
+        book[account][symbol] = round(value, 2)
+    last = prices.sort_values("date").groupby("symbol")["close"].last()
+    return {
+        "as_of": report.get("date"), "market": MARKET, "dates": [str(d) for d in returns.index],
+        "returns": {s: [round(float(x), 6) for x in returns[s]] for s in returns.columns},
+        "last_close": {s: round(float(last[s]), 4) for s in returns.columns},
+        "exposure": book, "nlv": {a: round(v, 2) for a, v in nlv.items()},
+    }
+
+
+def write_json(path: Path, data: dict) -> None:
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False, suffix=".tmp") as fh:
+        json.dump(data, fh, allow_nan=False)
+    os.chmod(fh.name, 0o644)
+    os.replace(fh.name, path)  # readers never see a half-written file
+
+
 def main() -> int:
     with urlopen(REPORT_URL, timeout=60) as response:
         report = json.load(response)
     prices = pd.read_csv(PRICES, dtype={"symbol": str})
     sectors = json.loads(SECTORS.read_text()).get("sectors", {}) if SECTORS.is_file() else {}
     result = build_report(report, prices, sectors)
-    with tempfile.NamedTemporaryFile("w", dir=OUT.parent, delete=False, suffix=".tmp") as fh:
-        json.dump(result, fh, allow_nan=False)
-    os.chmod(fh.name, 0o644)
-    os.replace(fh.name, OUT)  # readers never see a half-written report
+    write_json(SCENARIOS, scenario_data(report, prices))
+    write_json(OUT, result)
     fund = result["fund"]
     print(f"{result['as_of']}: VaR95 ${fund['var_95']:,.0f} ({fund['var_95_pct_nlv']}% NLV), "
           f"ES97.5 ${fund['es_97_5']:,.0f}, coverage {result['coverage']['modelled_pct']}%")

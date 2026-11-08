@@ -5,12 +5,12 @@ retired Stage 1–4 VaR pipeline (ADR-0029).
 
 | File | Role |
 |---|---|
-| `risk_job.py` | Computes the report and writes `latest.json` (atomic replace) |
+| `risk_job.py` | Computes the report and writes `latest.json`, plus `scenarios.json` for the what-if check (atomic replace) |
 | `lseg_backfill.py` | Downloads daily closes with an operator's own LSEG login into `prices.csv` |
 | `test_risk_job.py` | Checks VaR, ES, contributions, exclusions and NLV on synthetic data |
 
 On the server: `/opt/flex-web-live/risk/` holds the scripts, `prices.csv`,
-`latest.json` and `job.log`. Neither data file is committed or served raw.
+`latest.json`, `scenarios.json` and `job.log`. None of the data files is committed or served raw.
 
 ## Method
 
@@ -38,6 +38,26 @@ local-currency moves; FX moves are not modelled.
 Result on 2026-11-08 (holdings 2026-11-06, 500 days to 2026-11-06): VaR 95%
 $57,271 (0.94% of NLV), VaR 99% $112,667, ES 97.5% $118,385, 96.9% of gross
 exposure modelled.
+
+## Pre-trade what-if
+
+The **What if** box on the Risk management tab shows how one proposed trade
+(symbol, quantity, optional account) changes VaR 95/99%, ES 97.5% and the S&P 500
+sensitivity, for the fund and the chosen account, plus the trade's share of the
+new ES, its stand-alone VaR, the sector weight change and its P&L on the fund's
+five worst days.
+
+- `risk_job.py` writes `scenarios.json`: every modelled symbol's 500 daily moves,
+  its last close and the USD exposure per account (about 1.8 MB).
+- `../whatif.py` (pure Python, in the web service) adds the trade as extra
+  exposure and replays the same days. VaR/ES use Riskfolio's exact historical
+  formulas, so "before" matches the report (checked in `test_risk_job.py`).
+- `GET /api/v1/risk/whatif?symbol=&quantity=&account=` is read-only; nothing is
+  stored. Symbols without LSEG daily history (and options/warrants) are refused
+  with a reason.
+- Limits: the trade is priced at the last LSEG close and assumed to be in USD;
+  the data is as fresh as the last risk job run; liquidity (days to exit) and
+  factor exposure are not covered yet (no volume or factor model stored).
 
 ## Environment
 

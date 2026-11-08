@@ -19,3 +19,4 @@
 .history-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .periods button:disabled{opacity:.4;cursor:not-allowed}
 .acct-table.compact{width:auto;min-width:min(100%,420px)}.acct-table.compact td:first-child{padding-right:28px}
+.wi-run{height:34px;border:1px solid #0875a5;border-radius:6px;background:#0875a5;color:#fff;font-size:11px;font-weight:700;padding:0 14px;cursor:pointer}.wi-run:disabled{opacity:.6;cursor:wait}.wi-note{padding:10px 0;color:var(--muted);font-size:12px}.wi-note strong{color:#172033}

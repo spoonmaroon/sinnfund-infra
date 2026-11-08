@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 
 from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, read_trades, reprice
+from whatif import what_if
 from portfolio_api import (
     ReportCache,
     add_day_change,
@@ -191,6 +192,7 @@ def index():
             "/api/v1/sectors",
             "/api/v1/prices/validation",
             "/api/v1/risk",
+            "/api/v1/risk/whatif?symbol=&quantity=&account=",
             "/healthz",
         ],
     }
@@ -250,6 +252,39 @@ def risk():
     if not RISK_FILE.is_file():
         return JSONResponse({"available": False, "reason": "The daily risk report has not run yet."})
     return FileResponse(RISK_FILE, media_type="application/json")
+
+
+SCENARIOS_FILE = HERE / "risk" / "scenarios.json"
+_scenarios: dict = {}
+
+
+def load_scenarios() -> dict | None:
+    """risk/scenarios.json (~2 MB), re-read only when the daily risk job rewrites it."""
+    if not SCENARIOS_FILE.is_file():
+        return None
+    mtime = SCENARIOS_FILE.stat().st_mtime
+    if _scenarios.get("mtime") != mtime:
+        _scenarios.update(mtime=mtime, data=json.loads(SCENARIOS_FILE.read_text()))
+    return _scenarios["data"]
+
+
+@app.get("/api/v1/risk/whatif")
+def risk_whatif(
+    symbol: str = Query(..., min_length=1, max_length=24, pattern=r"^[A-Za-z0-9. ]+$"),
+    quantity: float = Query(..., ge=-1e9, le=1e9),
+    account: str = Query("", max_length=24),
+):
+    # Read-only: models a hypothetical trade against the daily risk data; nothing is stored.
+    data = load_scenarios()
+    if data is None:
+        return JSONResponse({"detail": "The daily risk job has not written scenario data yet."}, status_code=503)
+    if not quantity:
+        return JSONResponse({"detail": "Quantity must not be zero."}, status_code=422)
+    sectors = json.loads(SECTORS_FILE.read_text()).get("sectors", {})
+    try:
+        return what_if(data, sectors, symbol, quantity, account)
+    except ValueError as error:
+        return JSONResponse({"detail": str(error)}, status_code=422)
 
 
 @app.get("/api/v1/prices/validation")
