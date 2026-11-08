@@ -30,7 +30,6 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
     "api/v1/prices/validation": { coverage_pct: 100, value_coverage_pct: 100, updated_positions: 1, positions: 1 },
     "api/v1/history": history,
     "api/v1/risk": risk,
-    "api/v1/ytd": { available: true, year: "2026", start_nlv: 6020028, net_flows: -6500, pnl: 84528, pnl_pct: 1.4, sp500: { from: "2025-12-31", to: "2026-11-06", pct: 7.85 } },
     ...extra,
     "static/account-names.json": { U9000001: "Lifeboat", U9000002: "Tier One Acct", U9000004: "Factor Investing - Short Interest", U9000005: "Quant" },
   };
@@ -340,12 +339,4 @@ test("what-if will not run while a row is missing its quantity or symbol", async
   assert.deepEqual($.api.wiProblems(), ["Row 2: enter a quantity", "Row 3: enter a symbol", "Row 4: enter a quantity (a non-zero number)"]);
   assert.deepEqual(rows.map((r) => r.inputs.slice(0, 2).map((i) => i.invalid)),
     [[false, false], [false, true], [true, false], [false, true], [false, false]]);
-});
-
-test("dashboard shows P&L year to date next to the S&P 500", async () => {
-  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
-  assert.equal($("ytdPnl").textContent, "$84,528");
-  assert.equal($("ytdPnl").className, "pos");
-  assert.equal($("ytdNote").textContent, "+1.4% of $6,020,028 at year start · S&P +7.85%");
-  assert.equal($("spYtd").textContent, "+7.85%");
 });
