@@ -6,7 +6,8 @@
 # The old sinn-risk stage 1-4 VaR pipeline is retired and left untouched.
 #
 # What was broken (found 2026-11-08):
-#   1. lseg-history-refresh exits 1 if any single symbol fails; step 1 shows which ones and why.
+#   1. lseg-history-refresh exits 1 if any single symbol fails; step 1 shows which ones and why,
+#      step 1b makes it fail only when most symbols fail.
 #   2. lseg-history-api was never installed, and its unit file points at /opt/lseg-history/.venv,
 #      but the venv is /opt/lseg-history/venv (see docs/incidents/0005).
 #   3. The delayed LSEG feed (lseg-feed, 8091) only carries stocks and ETFs, so the fund's
@@ -30,6 +31,15 @@ for row in db.execute("select symbol, ric, message from sync_state where status=
 EOF
 else
   echo "($DB missing: the history refresh has never written prices)"
+fi
+
+echo "== 1b. Count the refresh as failed only when most symbols fail"
+# 2026-11-07: 318 ok, 2 failed (CCXI no longer held; TCBI.K is a Texas Stock Exchange RIC with
+# no daily history) and the whole run exited 1. Failed symbols stay listed in sync_state.
+HIST=/opt/lseg-history/history_api.py
+if grep -q '    return 1 if failed else 0' "$HIST"; then
+  cp -a "$HIST" "$HIST.bak-$(date -u +%Y%m%dT%H%M%SZ)"
+  sed -i 's/    return 1 if failed else 0/    return 1 if failed > succeeded else 0/' "$HIST"
 fi
 
 echo "== 2. Install the read-only history API on 127.0.0.1:8092 (never proxied by nginx)"
