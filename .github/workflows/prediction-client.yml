@@ -16,4 +16,5 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+      - run: pip install -r services/prediction-api/requirements.txt
       - run: python -m unittest discover services/prediction-api/tests
