@@ -20,13 +20,14 @@ History refresh: **unconfirmed** (likely a few failing symbols). Stage 3: wrong 
 
 ## Mitigation and resolution
 - New risk job uses an operator-run LSEG backfill instead (ADR-0030).
-- `deploy/risk-pipeline/fix-risk-pipeline.sh` (staged at `~enoch/fix-risk-pipeline.sh` on sinnfund) prints the refresh failure and failing symbols, installs `lseg-history-api` with the corrected venv path, and runs a refresh. Not yet run.
+- `deploy/risk-pipeline/fix-risk-pipeline.sh` (staged at `~enoch/fix-risk-pipeline.sh` on sinnfund) prints the refresh failure and failing symbols, installs `lseg-history-api` with the corrected venv path, and runs a refresh. Since 2026-11-08 it also adds the fund's five listed options to the delayed feed (step 5; backs up `lseg-symbols.env` first). Not yet run.
 
 ## Prevention / follow-ups
 - [ ] Admin runs `sudo bash ~enoch/fix-risk-pipeline.sh` and records the failing symbols.
 - [ ] Make the refresh fail only when most symbols fail, and report per-symbol errors.
 - [ ] Grant operators `systemctl start/restart` and `journalctl -u` for `lseg-history-refresh` and `lseg-history-api`.
 - [ ] Point `risk_job.py` at `127.0.0.1:8092` once the API is up.
+- [ ] After step 5: confirm the option RICs return prices, and remove expired options (IWM expires 2026-11-20).
 
 ## Links
 ADR-0012, ADR-0029, ADR-0030, INC-0005.

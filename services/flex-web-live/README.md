@@ -62,8 +62,10 @@ default order on the third.
   shows account numbers only.
 - **Options and warrants** are grouped as Options / Warrants and take their
   underlying's sector (first word of the symbol: `IWM   261120P…` → IWM) when
-  they have none of their own. They are priced from the statement only: the LSEG
-  feed subscribes to stocks and ETFs, not option RICs.
+  they have none of their own. Listed options reprice from the LSEG feed when it
+  carries them, keyed by the OCC symbol without spaces (`IWM261120P00280000`);
+  `deploy/risk-pipeline/fix-risk-pipeline.sh` step 5 adds the current five (needs
+  an admin). Warrants stay on the statement price.
 - **Sectors** come from `sectors.json`, rebuilt with
   `python3 build_sectors.py <saved /api/v1/report response>`.
 

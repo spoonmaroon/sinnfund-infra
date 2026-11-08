@@ -284,13 +284,15 @@ def reprice(positions: list[dict], lots: list[dict]) -> None:
         row["price_source"] = "flex_close"
 
         symbol = row.get("symbol", "").upper()
+        if row["asset_category"] == "OPT":
+            symbol = symbol.replace(" ", "")  # feed keys are OCC symbols without padding: IWM261120P00280000
         quote = quotes.get(symbol)
 
         if not isinstance(quote, dict):
             continue
 
-        # Skip options, warrants, and unsupported asset classes.
-        if row["asset_category"] != "STK":
+        # Stocks and listed options; warrants and others stay on the statement price.
+        if row["asset_category"] not in ("STK", "OPT"):
             continue
 
         try:
@@ -335,7 +337,7 @@ def reprice(positions: list[dict], lots: list[dict]) -> None:
             row["price_validation"] = "rejected_price_ratio"
             continue
 
-        # USD securities: quantity * multiplier * current price.
+        # USD securities: quantity * multiplier * current price (options: multiplier 100).
         # Non-USD: retain the approximate original FX/unit conversion.
         if row["currency"] == "USD":
             new_value = quantity * multiplier * price

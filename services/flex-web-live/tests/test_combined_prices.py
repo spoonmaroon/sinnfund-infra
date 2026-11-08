@@ -64,3 +64,23 @@ class CombinedPriceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OptionPriceTests(unittest.TestCase):
+    def test_options_reprice_from_the_unpadded_occ_key_and_warrants_stay_on_close(self):
+        from parse_flex_positions_live import reprice
+        option = {"symbol": "IWM   261120P00280000", "asset_category": "OPT", "currency": "USD",
+                  "quantity": "20", "multiplier": "100", "mark_price": "10.65",
+                  "market_value": "21300", "unrealized_pnl": "0"}
+        warrant = {"symbol": "FTW WS", "asset_category": "WAR", "currency": "USD", "quantity": "200",
+                   "multiplier": "1", "mark_price": "1", "market_value": "200", "unrealized_pnl": "0"}
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"snapshot_age_seconds": 10, "connected": True, "quotes": {
+            "IWM261120P00280000": {"price": 11, "ric": "/IWMW202628000.U"},
+            "FTW WS": {"price": 2}}}
+        with patch("parse_flex_positions_live.requests.get", return_value=response):
+            reprice([option, warrant], [])
+        self.assertEqual(option["market_value"], "22000.00000000")  # 20 contracts x 100 x $11
+        self.assertEqual(option["quote_ric"], "/IWMW202628000.U")
+        self.assertEqual(warrant["price_validation"], "close_only")

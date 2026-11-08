@@ -9,6 +9,8 @@
 #   1. lseg-history-refresh exits 1 if any single symbol fails; step 1 shows which ones and why.
 #   2. lseg-history-api was never installed, and its unit file points at /opt/lseg-history/.venv,
 #      but the venv is /opt/lseg-history/venv (see docs/incidents/0005).
+#   3. The delayed LSEG feed (lseg-feed, 8091) only carries stocks and ETFs, so the fund's
+#      listed options show statement prices only. Step 5 adds them (added 2026-11-08).
 set -euo pipefail
 
 [[ $EUID -eq 0 ]] || { echo "Run with sudo." >&2; exit 1; }
@@ -46,3 +48,25 @@ echo "== 4. Result"
 sleep 2
 curl -s http://127.0.0.1:8092/health; echo
 curl -s 'http://127.0.0.1:8092/history/AVGO?limit=3'; echo
+
+echo "== 5. Option prices: add the fund's listed options to the delayed LSEG feed (8091)"
+# Key = OCC symbol without spaces (what flex-web-live looks up); value = delayed OPRA RIC:
+# root + month code (calls A-L, puts M-X) + day + yy + strike x100 (5 digits) + .U
+# shortcut: fixed list of the 5 options held on 2026-11-06; IWM expires 2026-11-20. Remove expired
+# entries by hand until the feed's Flex resolver (LSEG_AUTO_RESOLVE_FLEX) learns options.
+FEED_ENV=/opt/lseg-feed/lseg-symbols.env
+OPTIONS="IWM261120P00280000=/IWMW202628000.U,GLD270115P00370000=/GLDM152737000.U,GLD270115C00410000=/GLDA152741000.U,CCL270115P00020000=/CCLM152702000.U,TLT270416C00080000=/TLTD162708000.U"
+KEYS=$(tr ',' '\n' <<<"$OPTIONS" | cut -d= -f1 | paste -sd,)
+if grep -q IWM261120P00280000 "$FEED_ENV"; then
+  echo "(options already in $FEED_ENV)"
+else
+  cp -a "$FEED_ENV" "$FEED_ENV.bak-$(date -u +%Y%m%dT%H%M%SZ)"   # restore this file to undo
+  sed -i "1s#\$#,$OPTIONS#" "$FEED_ENV"
+fi
+systemctl restart lseg-feed.service
+sleep 20
+# Off-hours: one snapshot now. Market hours: the stream picks them up and this says so.
+curl -s -X POST http://127.0.0.1:8091/refresh; echo
+sleep 60
+echo "Option quotes (an entry under errors means LSEG rejected that RIC; send it to the dashboard team):"
+curl -s "http://127.0.0.1:8091/prices?symbols=$KEYS" | python3 -m json.tool | grep -E '"(price|ric|errors)"|[A-Z]{3}2[67][0-9]{4}[CP]' || true
