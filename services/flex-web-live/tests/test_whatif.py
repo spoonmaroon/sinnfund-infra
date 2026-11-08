@@ -1,4 +1,4 @@
-"""Pre-trade what-if: math, and the read-only API route."""
+"""Pre-trade what-if: math for a basket of trades, and the API route."""
 import importlib.util
 import json
 import socket
@@ -9,8 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
-from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import uvicorn
 
@@ -39,30 +38,41 @@ class MathTests(unittest.TestCase):
         self.assertAlmostEqual(es_hist(pnl, 0.025), 20.0)
 
     def test_before_is_the_current_book_and_after_adds_the_trade(self):
-        result = what_if(DATA, SECTORS, "aaa", 50)
+        result = what_if(DATA, SECTORS, [{"symbol": "aaa", "quantity": 50}])
         before = [1500 * r for r in AAA]
         self.assertAlmostEqual(result["fund"]["before"]["var_95"], round(var_hist(before, 0.05), 2))
         after = [2000 * r for r in AAA]  # 50 x $10 more AAA
         self.assertAlmostEqual(result["fund"]["after"]["var_95"], round(var_hist(after, 0.05), 2))
-        self.assertEqual(result["trade"]["value"], 500.0)
-        self.assertEqual(result["fund"]["sector"], {"name": "Tech", "weight_before_pct": 100.0, "weight_after_pct": 100.0})
+        self.assertEqual(result["trades"][0]["value"], 500.0)
+        self.assertEqual(result["sectors"], [])  # all exposure stays in Tech: no weight changes
+        self.assertEqual(result["accounts"], [])  # no account given: fund only
 
     def test_a_hedge_lowers_risk_and_has_negative_es_contribution(self):
-        result = what_if(DATA, SECTORS, "HEDGE", 50, account="U1")  # $1,000 hedge offsets U1 fully
-        self.assertEqual(result["account"]["after"]["var_95"], 0.0)
+        result = what_if(DATA, SECTORS, [{"symbol": "HEDGE", "quantity": 50, "account": "U1"}])  # offsets U1 fully
+        self.assertEqual(result["accounts"][0]["after"]["var_95"], 0.0)
         self.assertLess(result["fund"]["after"]["es_97_5"], result["fund"]["before"]["es_97_5"])
-        self.assertLessEqual(result["fund"]["trade_es_contribution"], 0)
-        day = result["fund"]["worst_days"][0]
-        self.assertAlmostEqual(day["before"] + day["trade"], day["after"], places=1)
+        self.assertLessEqual(result["trades"][0]["es_contribution"], 0)
+        day = result["worst_days"][0]
+        self.assertAlmostEqual(day["before"] + day["trades"], day["after"], places=1)
+
+    def test_basket_adds_up_and_bad_rows_are_listed_not_fatal(self):
+        result = what_if(DATA, SECTORS, [
+            {"symbol": "AAA", "quantity": 50, "account": "U1"}, {"symbol": "HEDGE", "quantity": -10, "account": "U2"},
+            {"symbol": "ZZZ", "quantity": 1}, {"symbol": "AAA", "quantity": "abc"}, {"symbol": "AAA", "quantity": 1, "account": "U9"}])
+        self.assertEqual([t["row"] for t in result["trades"]], [1, 2])
+        self.assertEqual([(r["row"], r["reason"][:14]) for r in result["rejected"]],
+                         [(3, "not in the ris"), (4, "quantity must "), (5, "unknown accoun")])
+        self.assertEqual(result["basket"]["net_value"], 300.0)  # 500 + (-10 x $20)
+        self.assertAlmostEqual(sum(t["es_contribution"] for t in result["trades"]), result["basket"]["es_contribution"], places=1)
+        self.assertEqual([a["id"] for a in result["accounts"]], ["U1", "U2"])
+        self.assertEqual({r["name"] for r in result["sectors"]}, {"Tech", "Funds"})
 
     def test_foreign_listing_is_valued_in_usd(self):
-        self.assertEqual(what_if(DATA, SECTORS, "JPY", 100)["trade"]["value"], 1000.0)  # 100 x ¥1,000 at 0.01
+        self.assertEqual(what_if(DATA, SECTORS, [{"symbol": "JPY", "quantity": 100}])["trades"][0]["value"], 1000.0)
 
-    def test_unknown_symbol_and_account_are_rejected_with_a_reason(self):
-        with self.assertRaisesRegex(ValueError, "no LSEG daily price history"):
-            what_if(DATA, SECTORS, "ZZZ", 1)
-        with self.assertRaisesRegex(ValueError, "Unknown account"):
-            what_if(DATA, SECTORS, "AAA", 1, account="U9")
+    def test_nothing_modellable_raises_with_the_reasons(self):
+        with self.assertRaisesRegex(ValueError, "row 1 ZZZ: not in the risk model"):
+            what_if(DATA, SECTORS, [{"symbol": "ZZZ", "quantity": 1}])
 
 
 spec = importlib.util.spec_from_file_location("web_live_whatif", SERVICE / "web-live.py")
@@ -80,7 +90,7 @@ class RouteTests(unittest.TestCase):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
-        cls.base = f"http://127.0.0.1:{port}/api/v1/risk/whatif?"
+        cls.base = f"http://127.0.0.1:{port}/api/v1/risk/whatif"
         cls.server = uvicorn.Server(uvicorn.Config(web_live.app, port=port, log_level="error"))
         threading.Thread(target=cls.server.run, daemon=True).start()
         while not cls.server.started:
@@ -92,9 +102,10 @@ class RouteTests(unittest.TestCase):
         cls.patcher.stop()
         cls.temp.cleanup()
 
-    def get(self, **params):
+    def post(self, body):
+        request = Request(self.base, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
         try:
-            with urlopen(self.base + urlencode(params)) as response:
+            with urlopen(request) as response:
                 return response.status, json.loads(response.read())
         except HTTPError as error:
             with error:
@@ -102,16 +113,16 @@ class RouteTests(unittest.TestCase):
 
     def test_route(self):
         self.file.unlink(missing_ok=True)
-        self.assertEqual(self.get(symbol="AAA", quantity=1)[0], 503)  # risk job has not run
+        self.assertEqual(self.post({"trades": [{"symbol": "AAA", "quantity": 1}]})[0], 503)  # risk job has not run
         self.file.write_text(json.dumps(DATA))
-        status, body = self.get(symbol="AAA", quantity=50, account="U1")
+        status, body = self.post({"trades": [{"symbol": "AAA", "quantity": 50, "account": "U1"},
+                                             {"symbol": "ZZZ", "quantity": "1"}]})
         self.assertEqual(status, 200)
-        self.assertEqual(body["trade"]["value"], 500.0)
-        self.assertIn("account", body)
-        self.assertEqual(self.get(symbol="ZZZ", quantity=1)[0], 422)
-        self.assertEqual(self.get(symbol="AAA", quantity=0)[0], 422)
-        self.assertEqual(self.get(symbol="AAA;rm", quantity=1)[0], 422)  # only ticker characters
-
+        self.assertEqual(body["trades"][0]["value"], 500.0)
+        self.assertEqual(body["rejected"][0]["row"], 2)
+        self.assertEqual(self.post({"trades": [{"symbol": "ZZZ", "quantity": 1}]})[0], 422)
+        self.assertEqual(self.post({"trades": []})[0], 422)
+        self.assertEqual(self.post({"trades": [{"symbol": "A" * 41, "quantity": 1}]})[0], 422)
 
 if __name__ == "__main__":
     unittest.main()

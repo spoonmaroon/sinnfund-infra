@@ -16,7 +16,8 @@ live for debugging and as a fallback; it is not linked from the landing page.
 | Dashboard | Net liquidation value (positions + cash), unrealized P&L, day change, accounts table (NLV, % allocation, positions, cash, day change, P&L), sector allocation donut. Portfolio history is off until IBKR sends daily NAV. |
 | Positions | Every holding with price, day change, market value, cost, gain/loss and price source; expandable tax lots; grouping, filters and sortable columns. |
 | Sectors | Gross exposure, net value, day change and unrealized P&L per sector; sortable columns; holdings per sector. |
-| Risk management | What-if pre-trade check, 1-day VaR 95/99%, expected shortfall 97.5%, S&P 500 sensitivity, account risk, top risk contributors, risk by sector, worst historical days, model exclusions. See [`risk/README.md`](risk/README.md). |
+| What if | Basket of proposed trades (typed, pasted from a spreadsheet or a CSV) and their effect on fund and account risk; see `risk/README.md`. |
+| Risk management | 1-day VaR 95/99%, expected shortfall 97.5%, S&P 500 sensitivity, account risk, top risk contributors, risk by sector, worst historical days, model exclusions. See [`risk/README.md`](risk/README.md). |
 
 Column headers sort on the first click, reverse on the second and return to the
 default order on the third.
@@ -33,7 +34,7 @@ default order on the third.
 | `GET /api/v1/sectors` | Symbol → sector map (`sectors.json`) |
 | `GET /api/v1/history` | `{"available": false}` until the Flex archive carries daily NAV totals |
 | `GET /api/v1/risk` | Latest risk report written by `risk/risk_job.py` |
-| `GET /api/v1/risk/whatif` | Pre-trade check: `symbol`, `quantity` (negative to sell/short), optional `account`; risk before and after (see `risk/README.md`) |
+| `POST /api/v1/risk/whatif` | Pre-trade check for a basket: `{"trades": [{symbol, quantity, account}]}`; risk before and after (see `risk/README.md`) |
 | `GET /api/v1/prices/validation` | Close-versus-delayed coverage and gap checks |
 | `GET /api/v1/trades` | Every execution in the archives, newest first. **Hidden:** 404 unless the service runs with `TRADE_LOG=1`; the page's Trade history card stays hidden until then. Not listed in `/api/v1`. |
 | `GET /healthz` | Archive availability |

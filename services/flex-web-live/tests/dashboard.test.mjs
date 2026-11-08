@@ -4,7 +4,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8");
+const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
+  + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
+  + "\nreturn { wiParse, wiRender, wiAccountId };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -33,14 +35,14 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
   };
   const context = {
     document: {
-      getElementById: byId, body: fakeElement(), addEventListener() {},
+      getElementById: byId, body: fakeElement(), addEventListener() {}, createElement: () => fakeElement(),
       querySelector: (selector) => byId(`query:${selector}`), querySelectorAll: () => [],
     },
     window: { scrollTo() {} },
     fetch: async (url) => ({ ok: url in responses, json: async () => responses[url] }),
     console,
   };
-  new Function(...Object.keys(context), APP)(...Object.values(context));
+  byId.api = new Function(...Object.keys(context), APP)(...Object.values(context));
   await new Promise((resolve) => setTimeout(resolve, 0));
   return byId;
 }
@@ -283,33 +285,42 @@ test("trade history lists executions with names and USD values once enabled", as
   assert.match($("tradeList").innerHTML, /<td>Quant<\/td><td>SELL<\/td><td>GDX<\/td><td class="num">-100<\/td><td class="num">\$83.11<\/td><td class="num"><span class="">8,311<\/span><\/td><td class="num"><span class="">3,412<\/span>/);
 });
 
-test("what-if shows fund risk before and after a proposed trade", async () => {
-  const side = (v) => ({ var_95: v, var_99: v * 2, es_97_5: v * 2.1, sp500_down_1pct: -v / 2 });
-  const result = {
-    trade: { symbol: "NVDA", quantity: 100, price: 186.64, value: 18664, sector: "Information Technology",
-      account: null, stand_alone_var_95: 770 },
-    fund: { before: side(57196), after: side(57820), trade_es_contribution: 1160,
-      sector: { name: "Information Technology", weight_before_pct: 14.96, weight_after_pct: 15.25 },
-      worst_days: [{ date: "2025-04-04", before: -216294, trade: -1500, after: -217794 }] },
-  };
-  const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined,
-    { "api/v1/risk/whatif?symbol=NVDA&quantity=100&account=": result });
-  $("wiSymbol").value = "NVDA";
-  $("wiQty").value = "100";
-  $("wiAccount").value = "";
-  await $("wiRun").handlers.click();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  const html = $("wiResult").innerHTML;
-  assert.match(html, /Buy 100 NVDA<\/strong> at \$186.64/);
-  assert.match(html, /<td>VaR 95%<\/td><td class="num"><span class="">57,196<\/span><\/td><td class="num"><span class="">57,820<\/span><\/td><td class="num">\+624<\/td>/);
-  assert.match(html, /14.96% → 15.25% of gross/);
-  assert.match(html, /-217,794/);
+test("what-if reads spreadsheet paste and CSV files with any header order", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  const { wiParse } = $.api;
+  assert.deepEqual(wiParse('AAPL\t"1,000"'), [{ symbol: "AAPL", quantity: "1000", account: "" }]); // quoted spreadsheet cell
+  assert.deepEqual(wiParse("NVDA\t100\tQuant\nGLD\t-50\t"),
+    [{ symbol: "NVDA", quantity: "100", account: "Quant" }, { symbol: "GLD", quantity: "-50", account: "" }]);
+  assert.deepEqual(wiParse('Account,Ticker,Shares\r\nU9000002,AAPL,"1,000"\r\nU9000005,MSFT,(25)\r\n'),
+    [{ symbol: "AAPL", quantity: "1000", account: "U9000002" }, { symbol: "MSFT", quantity: "-25", account: "U9000005" }]);
+  assert.deepEqual(wiParse("symbol;quantity\nSAP;10"), [{ symbol: "SAP", quantity: "10", account: "" }]);
 });
 
-test("what-if asks for a symbol and quantity before calling the server", async () => {
+test("what-if accepts account names as well as numbers", async () => {
   const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
-  $("wiSymbol").value = "NVDA";
-  $("wiQty").value = "0";
-  $("wiRun").handlers.click();
-  assert.match($("wiResult").innerHTML, /non-zero quantity/);
+  assert.equal($.api.wiAccountId("quant"), "U9000005");
+  assert.equal($.api.wiAccountId("U9000002"), "U9000002");
+  assert.equal($.api.wiAccountId("Unknown Book"), "Unknown Book"); // the server rejects that row with a reason
+});
+
+test("what-if results lead with before/after cards and list every trade and left-out row", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  const side = (v) => ({ var_95: v, var_99: v * 2, es_97_5: v * 2.1, sp500_down_1pct: -v / 2 });
+  $.api.wiRender({
+    as_of: "20261106", scenarios: 500,
+    trades: [{ row: 1, symbol: "NVDA", account: "U9000005", quantity: 100, price: 186.64, fx_to_usd: 1, value: 18664,
+      stand_alone_var_95: 770, es_contribution: 1160, sector: "Information Technology" }],
+    rejected: [{ row: 2, symbol: "ZZZ", reason: "no LSEG daily price history" }],
+    basket: { net_value: 18664, gross_value: 18664, stand_alone_var_95: 770, es_contribution: 1160 },
+    fund: { before: side(57205), after: side(57825) },
+    accounts: [{ id: "U9000005", trades: 1, before: side(1000), after: side(1500) }],
+    sectors: [{ name: "Information Technology", before_pct: 14.96, after_pct: 15.25 }],
+    worst_days: [{ date: "2025-04-04", before: -216627, trades: -1373, after: -218000 }],
+  });
+  const html = $("wiResult").innerHTML;
+  assert.match(html, /<label>Fund VaR 95%<\/label><strong>\$57,825<\/strong>\s*<small>was \$57,205 · <b class="wi-change">\+620 \(\+1.08%\)/);
+  assert.match(html, /Row 2 ZZZ: no LSEG daily price history/);
+  assert.match(html, /<td>Quant<\/td><td class="num">1<\/td>\s*<td class="num">1,000<\/td><td class="num">1,500<\/td><td class="num">\+500<\/td>/);
+  assert.match(html, /\+0.29 pts/);
+  assert.match(html, /-218,000/);
 });

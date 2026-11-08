@@ -41,24 +41,33 @@ exposure modelled.
 
 ## Pre-trade what-if
 
-The **What if** box on the Risk management tab shows how one proposed trade
-(symbol, quantity, optional account) changes VaR 95/99%, ES 97.5% and the S&P 500
-sensitivity, for the fund and the chosen account, plus the trade's share of the
-new ES, its stand-alone VaR, the sector weight change and its P&L on the fund's
-five worst days.
+The **What if** page (side nav) shows how a basket of proposed trades changes risk:
+VaR 95/99%, ES 97.5% and the S&P 500 sensitivity before and after for the fund,
+every account the trades touch, each trade's own VaR and share of the new ES,
+sector weights that change, and the fund's five worst days with and without the
+trades.
 
+- **Entering trades:** type rows; paste rows copied from Excel or Google Sheets
+  anywhere on the page; drop or open a CSV (comma, semicolon or tab). Headers are
+  optional and matched loosely (symbol/ticker, quantity/qty/shares/position,
+  account/acct/book); `1,000` and `(25)` are read as 1000 and -25. Accounts can
+  be numbers or names from the fund sheet. **Download template** gives a sample.
+- **Bad rows don't block the rest:** each is listed with its reason (unknown
+  account, non-numeric quantity, symbol not in the risk model); up to 500 trades.
 - `risk_job.py` writes `scenarios.json`: every modelled symbol's 500 daily moves,
-  its last close and the USD exposure per account (about 1.8 MB).
-- `../whatif.py` (pure Python, in the web service) adds the trade as extra
+  its last close, IBKR's FX rate for held foreign listings and the USD exposure
+  per account (about 1.8 MB).
+- `../whatif.py` (pure Python, in the web service) adds the trades as extra
   exposure and replays the same days. VaR/ES use Riskfolio's exact historical
   formulas, so "before" matches the report (checked in `test_risk_job.py`).
-- `GET /api/v1/risk/whatif?symbol=&quantity=&account=` is read-only; nothing is
-  stored. Symbols without LSEG daily history (and options/warrants) are refused
-  with a reason.
-- Limits: the trade is priced at the last LSEG close, converted to USD with
-  IBKR's rate for held foreign listings (unheld foreign listings count as USD);
-  the data is as fresh as the last risk job run; liquidity (days to exit) and
-  factor exposure are not covered yet (no volume or factor model stored).
+- `POST /api/v1/risk/whatif` with `{"trades": [{"symbol", "quantity", "account"}]}`
+  is read-only; nothing is stored.
+- **Limits:** only symbols in the risk data can be modelled, which today means
+  names the fund already holds (with 250+ days of history) plus IVV, so a new
+  name such as AAPL is refused until its history is added. Trades are priced at
+  the last LSEG close (foreign listings converted with IBKR's rate). The data is
+  as fresh as the last risk job run. Options, warrants, liquidity and factor
+  exposure are not covered yet.
 
 ## Environment
 

@@ -16,6 +16,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, read_trades, reprice
 from whatif import what_if
@@ -192,7 +193,7 @@ def index():
             "/api/v1/sectors",
             "/api/v1/prices/validation",
             "/api/v1/risk",
-            "/api/v1/risk/whatif?symbol=&quantity=&account=",
+            "POST /api/v1/risk/whatif {trades: [{symbol, quantity, account}]}",
             "/healthz",
         ],
     }
@@ -268,21 +269,30 @@ def load_scenarios() -> dict | None:
     return _scenarios["data"]
 
 
-@app.get("/api/v1/risk/whatif")
-def risk_whatif(
-    symbol: str = Query(..., min_length=1, max_length=24, pattern=r"^[A-Za-z0-9. ]+$"),
-    quantity: float = Query(..., ge=-1e9, le=1e9),
-    account: str = Query("", max_length=24),
-):
-    # Read-only: models a hypothetical trade against the daily risk data; nothing is stored.
+class Trade(BaseModel):
+    symbol: str = Field(min_length=1, max_length=40)
+    quantity: float | str  # validated per row, so one bad row does not reject the basket
+    account: str = Field("", max_length=60)
+
+
+class Basket(BaseModel):
+    trades: list[Trade] = Field(min_length=1, max_length=2000)
+
+
+# Annotations are strings here (__future__); resolve them now so any import path works.
+Trade.model_rebuild(_types_namespace=globals())
+Basket.model_rebuild(_types_namespace=globals())
+
+
+@app.post("/api/v1/risk/whatif")
+def risk_whatif(basket: Basket):
+    # Read-only: models hypothetical trades against the daily risk data; nothing is stored.
     data = load_scenarios()
     if data is None:
         return JSONResponse({"detail": "The daily risk job has not written scenario data yet."}, status_code=503)
-    if not quantity:
-        return JSONResponse({"detail": "Quantity must not be zero."}, status_code=422)
     sectors = json.loads(SECTORS_FILE.read_text()).get("sectors", {})
     try:
-        return what_if(data, sectors, symbol, quantity, account)
+        return what_if(data, sectors, [trade.model_dump() for trade in basket.trades])
     except ValueError as error:
         return JSONResponse({"detail": str(error)}, status_code=422)
 

@@ -1,7 +1,7 @@
-"""Pre-trade what-if: how one proposed trade changes the fund's (and an account's) risk.
+"""Pre-trade what-if: how a basket of proposed trades changes the fund's and accounts' risk.
 
 Uses risk/scenarios.json from the daily risk job: each modelled symbol's last 500 daily
-moves and the current USD exposure per account. The trade is added as more exposure and
+moves and the current USD exposure per account. Trades are added as more exposure and
 the book is revalued under the same historical days, so "before" matches the Risk tab.
 Pure Python on purpose: the web service does not carry numpy or Riskfolio.
 """
@@ -59,59 +59,93 @@ def gross_by_sector(book: dict[str, float], sectors: dict[str, str]) -> dict[str
         name = sectors.get(symbol, "Unclassified")
         out[name] = out.get(name, 0.0) + abs(value)
     return out
+MAX_TRADES = 500
 
 
-def what_if(data: dict, sectors: dict[str, str], symbol: str, quantity: float,
-            account: str = "", price: float | None = None) -> dict:
-    """Raises ValueError with a user-facing message when the trade cannot be modelled."""
-    symbol = symbol.strip().upper()
-    returns = data["returns"]
-    if symbol not in returns:
-        raise ValueError(f"{symbol} has no LSEG daily price history in the risk data, so it cannot be "
-                         "modelled yet (options and warrants are not modelled).")
-    if account and account not in data["nlv"]:
-        raise ValueError(f"Unknown account {account}.")
-    price = price or data["last_close"][symbol]
-    fx = data.get("fx_to_usd", {}).get(symbol, 1.0)  # listing currency -> USD (IBKR's rate)
-    value = quantity * price * fx
+def tail_days(pnl: list[float]) -> list[int]:
+    """The worst 2.5% of days, used to split expected shortfall across trades."""
+    return sorted(range(len(pnl)), key=pnl.__getitem__)[:math.ceil(0.025 * len(pnl))]
+
+
+def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
+    """trades: [{"symbol", "quantity", "account" (optional)}]. Rows that cannot be modelled are
+    returned under "rejected" with a reason; raises ValueError if none can be modelled."""
+    returns, nlv = data["returns"], data["nlv"]
     days = len(data["dates"])
     market = returns.get(data.get("market", ""))
+    accepted, rejected = [], []
+    for row, trade in enumerate(trades[:MAX_TRADES], start=1):
+        symbol = str(trade.get("symbol", "")).strip().upper()
+        account = str(trade.get("account") or "").strip()
+        try:
+            quantity = float(trade.get("quantity"))
+        except (TypeError, ValueError):
+            quantity = 0.0
+        reason = ("quantity must be a non-zero number" if not math.isfinite(quantity) or not quantity
+                  else "not in the risk model: no or under 250 days of LSEG price history, or an option/warrant"
+                  if symbol not in returns else f"unknown account {account}" if account and account not in nlv
+                  else "")
+        if reason:
+            rejected.append({"row": row, "symbol": symbol, "reason": reason})
+            continue
+        price, fx = data["last_close"][symbol], data.get("fx_to_usd", {}).get(symbol, 1.0)
+        value = quantity * price * fx  # listing currency -> USD with IBKR's rate
+        accepted.append({"row": row, "symbol": symbol, "quantity": quantity, "account": account or None,
+                         "price": price, "fx_to_usd": fx, "value": value,
+                         "sector": sectors.get(symbol, "Unclassified"),
+                         "pnl": book_pnl({symbol: value}, returns, days)})
+    if not accepted:
+        raise ValueError("None of the trades can be modelled: "
+                         + "; ".join(f"row {r['row']} {r['symbol'] or '(blank)'}: {r['reason']}" for r in rejected[:5]))
+
+    def add(book: dict[str, float], legs: list[dict]) -> dict[str, float]:
+        out = dict(book)
+        for leg in legs:
+            out[leg["symbol"]] = out.get(leg["symbol"], 0.0) + leg["value"]
+        return out
+
+    def basket_pnl(legs: list[dict]) -> list[float]:
+        return [sum(day) for day in zip(*(leg["pnl"] for leg in legs))]
 
     fund_book: dict[str, float] = {}
     for holdings in data["exposure"].values():
-        for s, v in holdings.items():
-            fund_book[s] = fund_book.get(s, 0.0) + v
-    trade = book_pnl({symbol: value}, returns, days)
+        fund_book = add(fund_book, [{"symbol": s, "value": v} for s, v in holdings.items()])
+    fund_before = book_pnl(fund_book, returns, days)
+    basket = basket_pnl(accepted)
+    fund_after = [b + t for b, t in zip(fund_before, basket)]
+    tail = tail_days(fund_after)
 
-    def compare(book: dict[str, float], nlv: float) -> dict:
-        before = book_pnl(book, returns, days)
-        after = [b + t for b, t in zip(before, trade)]
-        result = {"before": risk(before, nlv, market), "after": risk(after, nlv, market)}
-        # Trade's share of the new expected shortfall: its average P&L on the after-book's worst 2.5% of days.
-        k = math.ceil(0.025 * days)
-        tail = sorted(range(days), key=after.__getitem__)[:k]
-        result["trade_es_contribution"] = round(-sum(trade[i] for i in tail) / k, 2)
-        new_book = {**book, symbol: book.get(symbol, 0.0) + value}
-        g_before, g_after = gross_by_sector(book, sectors), gross_by_sector(new_book, sectors)
-        sector = sectors.get(symbol, "Unclassified")
-        result["sector"] = {
-            "name": sector,
-            "weight_before_pct": round(g_before.get(sector, 0.0) / (sum(g_before.values()) or 1) * 100, 2),
-            "weight_after_pct": round(g_after.get(sector, 0.0) / (sum(g_after.values()) or 1) * 100, 2),
-        }
-        worst = sorted(range(days), key=before.__getitem__)[:5]
-        result["worst_days"] = [{"date": data["dates"][i], "before": round(before[i], 2),
-                                 "trade": round(trade[i], 2), "after": round(after[i], 2)} for i in worst]
-        return result
+    accounts = []
+    for account in sorted({leg["account"] for leg in accepted if leg["account"]}):
+        legs = [leg for leg in accepted if leg["account"] == account]
+        before = book_pnl(data["exposure"].get(account, {}), returns, days)
+        after = [b + t for b, t in zip(before, basket_pnl(legs))]
+        accounts.append({"id": account, "trades": len(legs), "before": risk(before, nlv[account], market),
+                         "after": risk(after, nlv[account], market)})
 
-    out = {
+    g_before, g_after = gross_by_sector(fund_book, sectors), gross_by_sector(add(fund_book, accepted), sectors)
+    total_before, total_after = sum(g_before.values()) or 1, sum(g_after.values()) or 1
+    sector_rows = [{"name": name, "before_pct": round(g_before.get(name, 0.0) / total_before * 100, 2),
+                    "after_pct": round(g_after.get(name, 0.0) / total_after * 100, 2)}
+                   for name in sorted(set(g_before) | set(g_after))]
+    worst = sorted(range(days), key=fund_before.__getitem__)[:5]
+    return {
         "as_of": data.get("as_of"), "scenarios": days,
-        "trade": {"symbol": symbol, "quantity": quantity, "price": round(price, 4), "fx_to_usd": fx,
-                  "value": round(value, 2),
-                  "account": account or None, "sector": sectors.get(symbol, "Unclassified"),
-                  "stand_alone_var_95": round(var_hist(trade, 0.05), 2)},
-        "fund": compare(fund_book, sum(data["nlv"].values()) + 0.0),
+        "trades": [{**{k: v for k, v in leg.items() if k != "pnl"}, "price": round(leg["price"], 4),
+                    "value": round(leg["value"], 2),
+                    "stand_alone_var_95": round(var_hist(leg["pnl"], 0.05), 2),
+                    "es_contribution": round(-sum(leg["pnl"][i] for i in tail) / len(tail), 2)}
+                   for leg in accepted],
+        "rejected": rejected + [{"row": row, "symbol": str(t.get("symbol", "")), "reason": f"over the {MAX_TRADES}-trade limit"}
+                                for row, t in enumerate(trades[MAX_TRADES:], start=MAX_TRADES + 1)],
+        "basket": {"net_value": round(sum(leg["value"] for leg in accepted), 2),
+                   "gross_value": round(sum(abs(leg["value"]) for leg in accepted), 2),
+                   "stand_alone_var_95": round(var_hist(basket, 0.05), 2),
+                   "es_contribution": round(-sum(basket[i] for i in tail) / len(tail), 2)},
+        "fund": {"before": risk(fund_before, sum(nlv.values()) + 0.0, market),
+                 "after": risk(fund_after, sum(nlv.values()) + 0.0, market)},
+        "accounts": accounts,
+        "sectors": [r for r in sector_rows if abs(r["after_pct"] - r["before_pct"]) >= 0.01],
+        "worst_days": [{"date": data["dates"][i], "before": round(fund_before[i], 2), "trades": round(basket[i], 2),
+                        "after": round(fund_after[i], 2)} for i in worst],
     }
-    if account:
-        out["account"] = compare(dict(data["exposure"].get(account, {})), data["nlv"][account])
-    return out

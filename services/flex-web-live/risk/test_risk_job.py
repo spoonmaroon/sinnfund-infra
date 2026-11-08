@@ -84,7 +84,7 @@ class RiskJobTests(unittest.TestCase):
 
     def test_scenario_data_reproduces_the_report_for_the_what_if(self):
         data = scenario_data(self.report, PRICES)
-        before = what_if(data, {}, "AAA", 1)["fund"]["before"]
+        before = what_if(data, {}, [{"symbol": "AAA", "quantity": 1}])["fund"]["before"]
         fund = self.result["fund"]
         for key in ("var_95", "var_99", "es_97_5", "sp500_down_1pct"):
             self.assertAlmostEqual(before[key], fund[key], delta=1.0)  # returns stored to 6 decimals
