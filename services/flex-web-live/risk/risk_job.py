@@ -108,8 +108,9 @@ def build_report(report: dict, prices: pd.DataFrame, sectors: dict[str, str]) ->
             continue
         excluded.append({"account": account, "symbol": symbol, "value": round(value, 2), "reason": reason})
 
-    symbols = sorted({symbol for _, symbol in exposure})
-    by_symbol = pd.Series({s: sum(v for (_, sym), v in exposure.items() if sym == s) for s in symbols})
+    held = pd.Series(exposure)  # index: (account, symbol)
+    by_symbol = held.groupby(level=1).sum()
+    symbols = list(by_symbol.index)
     R = returns[symbols]
     fund_pnl = R @ by_symbol
     fund_nlv = sum(nlv.values())
@@ -119,16 +120,13 @@ def build_report(report: dict, prices: pd.DataFrame, sectors: dict[str, str]) ->
     contrib = pd.Series(np.asarray(contrib).ravel(), index=symbols)
     by_sector = defaultdict(float)
     for symbol, value in contrib.items():
-        by_sector[sectors.get(symbol, "Unclassified")] += value
+        by_sector[sectors.get(symbol, "Unclassified")] += float(value)
 
     accounts = []
-    for account in sorted(nlv, key=lambda a: -nlv[a]):
-        held = {s: v for (a, s), v in exposure.items() if a == account}
-        if not held:
-            continue
-        pnl = R[list(held)] @ pd.Series(held)
+    for account, book in sorted(held.groupby(level=0), key=lambda item: -nlv[item[0]]):
+        book = book.droplevel(0)
         accounts.append({"id": account, "nlv": round(nlv[account], 2),
-                         "modelled": round(sum(held.values()), 2), **metrics(pnl, nlv[account])})
+                         "modelled": round(float(book.sum()), 2), **metrics(R[book.index] @ book, nlv[account])})
 
     market = None
     if MARKET in returns.columns:

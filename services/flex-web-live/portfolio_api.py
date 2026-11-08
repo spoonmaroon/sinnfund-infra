@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import statistics
 import threading
@@ -10,7 +9,6 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
 from typing import Callable
 from zoneinfo import ZoneInfo
 
@@ -18,7 +16,6 @@ NEW_YORK = ZoneInfo("America/New_York")
 LOG = logging.getLogger(__name__)
 
 
-RANGES = ("1D", "1W", "1M", "3M", "YTD", "1Y", "ALL")
 
 
 def number(value: object) -> Decimal:
@@ -346,47 +343,4 @@ def history_series(days: list[tuple[str, list[dict], set[str]]]) -> dict:
     return {
         "points": points,
         "method": "Mark-to-market P&L on held positions between IBKR statement closes.",
-    }
-
-
-def performance_payload(path: Path, selected_range: str) -> dict:
-    selected_range = selected_range.upper()
-    if selected_range not in RANGES:
-        selected_range = "ALL"
-
-    unavailable = {
-        "available": False,
-        "range": selected_range,
-        "currency": "USD",
-        "return": None,
-        "points": [],
-        "periods": {period: None for period in RANGES},
-        "reason": "The saved IBKR Flex query does not include daily NAV or time-weighted return fields.",
-    }
-    if not path.is_file():
-        return unavailable
-    try:
-        payload = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError, TypeError):
-        return unavailable
-    if not isinstance(payload, dict) or not isinstance(payload.get("points"), list):
-        return unavailable
-
-    ranges = payload.get("ranges", {})
-    selected = ranges.get(selected_range, {}) if isinstance(ranges, dict) else {}
-    return {
-        "available": bool(payload.get("points")),
-        "range": selected_range,
-        "currency": payload.get("currency", "USD"),
-        "return": selected.get("return") if isinstance(selected, dict) else None,
-        "points": selected.get("points", payload["points"]) if isinstance(selected, dict) else payload["points"],
-        "periods": {
-            period: ranges.get(period, {}).get("return")
-            if isinstance(ranges.get(period), dict)
-            else None
-            for period in RANGES
-        },
-        "reason": None,
-        "method": payload.get("method", "TWR"),
-        "generated_at": payload.get("generated_at"),
     }

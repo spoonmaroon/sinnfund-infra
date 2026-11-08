@@ -34,7 +34,6 @@ default order on the third.
 | `GET /api/v1/history` | `{"available": false}` until the Flex archive carries daily NAV totals |
 | `GET /api/v1/risk` | Latest risk report written by `risk/risk_job.py` |
 | `GET /api/v1/prices/validation` | Close-versus-delayed coverage and gap checks |
-| `GET /api/v1/performance` | Return-history contract; unavailable until NAV/TWR is ingested |
 | `GET /healthz` | Archive availability |
 
 ## How the numbers are built

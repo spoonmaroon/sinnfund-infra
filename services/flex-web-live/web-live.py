@@ -23,7 +23,6 @@ from portfolio_api import (
     add_day_change,
     carry_forward,
     history_series,
-    performance_payload,
     portfolio_summary,
     positions_page,
     price_validation_summary,
@@ -34,12 +33,6 @@ HERE = Path(__file__).parent
 UI_DIR = HERE / "ui"
 SECTORS_FILE = HERE / "sectors.json"
 ARCHIVE_DIR = Path(os.environ.get("FLEX_ARCHIVE_DIR", str(DEFAULT_ARCHIVE_DIR)))
-PERFORMANCE_FILE = Path(
-    os.environ.get(
-        "FLEX_PERFORMANCE_FILE",
-        str(ARCHIVE_DIR.parent / "performance" / "portfolio.json"),
-    )
-)
 LSEG_HEALTH_URL = os.environ.get("LSEG_HEALTH_URL", "http://127.0.0.1:8091/health")
 
 
@@ -64,20 +57,19 @@ def load_report() -> dict:
         raise FileNotFoundError(f"Archive directory not found: {ARCHIVE_DIR}")
     date = latest_date(ARCHIVE_DIR)
     paths = archive_files(date)
-    positions, lots, accounts = read_archives(paths)
+    positions, lots, cash = read_archives(paths)
     previous, carried = [], {}
     try:
         previous_date = latest_date(ARCHIVE_DIR, before=date)
     except ValueError:
         previous_date = ""  # first archived day: no previous close, day change stays blank
     if previous_date:
-        previous, previous_lots, previous_accounts = read_archives(archive_files(previous_date))
-        extra = carry_forward(previous, accounts, previous_date)
-        positions += extra
-        lots += carry_forward(previous_lots, accounts, previous_date)
-        carried = {"from": previous_date,
-                   "accounts": sorted(set(previous_accounts) - set(accounts))}
-        accounts = {**{k: v for k, v in previous_accounts.items() if k in carried["accounts"]}, **accounts}
+        previous, previous_lots, previous_cash = read_archives(archive_files(previous_date))
+        positions += carry_forward(previous, cash, previous_date)
+        lots += carry_forward(previous_lots, cash, previous_date)
+        missing = sorted(set(previous_cash) - set(cash))
+        carried = {"from": previous_date, "accounts": missing}
+        cash = {**{account: previous_cash[account] for account in missing}, **cash}
     reprice(positions, lots)
     add_day_change(positions, previous)
     return {
@@ -86,7 +78,7 @@ def load_report() -> dict:
         "positions": positions,
         "lots": lots,
         "carried_forward": carried,
-        "cash": accounts,
+        "cash": cash,
         "lseg_last_snapshot_at": get_lseg_last_snapshot_at(),
     }
 
@@ -189,7 +181,6 @@ def index():
             "/api/v1/sectors",
             "/api/v1/prices/validation",
             "/api/v1/risk",
-            "/api/v1/performance",
             "/healthz",
         ],
     }
@@ -242,11 +233,6 @@ def risk():
     if not RISK_FILE.is_file():
         return JSONResponse({"available": False, "reason": "The daily risk report has not run yet."})
     return FileResponse(RISK_FILE, media_type="application/json")
-
-
-@app.get("/api/v1/performance", response_class=JSONResponse)
-def performance(range: str = Query("ALL", max_length=4)):
-    return performance_payload(PERFORMANCE_FILE, range)
 
 
 @app.get("/api/v1/prices/validation")

@@ -26,7 +26,6 @@ import lseg.data as ld
 
 KEYS = Path("~/.config/research-keys").expanduser()
 FIELD = "TRDPRC_1"
-BATCH = 50
 
 
 def secret(var: str, filename: str) -> str:
@@ -66,20 +65,18 @@ def isin_rics(isins: dict[str, str]) -> dict[str, str]:
     return found
 
 
-def closes(frame, rics: list[str]) -> dict[str, dict[str, float]]:
-    """{ric: {YYYY-MM-DD: close}} from get_history's single- or multi-RIC frame."""
-    out: dict[str, dict[str, float]] = {}
+def closes(ric: str, start: date, end: date) -> dict[str, float]:
+    """{YYYY-MM-DD: close} for one RIC; empty when LSEG has no data for it."""
+    try:
+        frame = ld.get_history(universe=ric, fields=[FIELD], interval="daily",
+                               start=start.isoformat(), end=end.isoformat())
+    except Exception as exc:  # LDError for unknown or unentitled RICs
+        print(f"  {ric}: {type(exc).__name__}", file=sys.stderr)
+        return {}
     if frame is None or frame.empty:
-        return out
-    for column in frame.columns:
-        parts = column if isinstance(column, tuple) else (column,)
-        ric = next((p for p in parts if p in rics), rics[0] if len(rics) == 1 else None)
-        if ric is None or (len(parts) > 1 and FIELD not in parts):
-            continue
-        for day, value in frame[column].items():
-            if value == value and float(value) > 0:  # skip NaN and non-positive marks
-                out.setdefault(ric, {})[day.date().isoformat()] = float(value)
-    return out
+        return {}
+    # One RIC and one field come back as a single column.
+    return {day.date().isoformat(): float(v) for day, v in frame.iloc[:, 0].items() if v == v and float(v) > 0}
 
 
 def main() -> int:
@@ -112,42 +109,22 @@ def main() -> int:
             resolved = isin_rics(wanted)
             for symbol in sorted(set(wanted) - set(resolved)):
                 # The ISIN lookup skips funds; US ETFs use the bare ticker or an exchange suffix.
-                for ric in (symbol, f"{symbol}.K", f"{symbol}.P", f"{symbol}.O"):
-                    try:
-                        if closes(ld.get_history(universe=ric, fields=[FIELD], interval="daily",
-                                                 start=end.isoformat(), end=end.isoformat()), [ric]) or \
-                           closes(ld.get_history(universe=ric, fields=[FIELD], interval="daily",
-                                                 start=(end - timedelta(days=10)).isoformat(),
-                                                 end=end.isoformat()), [ric]):
-                            resolved[symbol] = ric
-                            break
-                    except Exception:
-                        continue
+                ric = next((r for r in (symbol, f"{symbol}.K", f"{symbol}.P", f"{symbol}.O")
+                            if closes(r, end - timedelta(days=10), end)), None)
+                if ric:
+                    resolved[symbol] = ric
             print(f"ISIN lookup: {len(resolved)}/{len(wanted)} extra stocks resolved; "
                   f"unresolved: {', '.join(sorted(set(wanted) - set(resolved))) or 'none'}", file=sys.stderr)
             symbols.update(resolved)
             by_ric.update({ric: symbol for symbol, ric in resolved.items()})
-        rics = list(by_ric)
-        for i in range(0, len(rics), BATCH):
-            batch = rics[i:i + BATCH]
-            try:
-                got = closes(ld.get_history(universe=batch, fields=[FIELD], interval="daily",
-                                            start=start.isoformat(), end=end.isoformat()), batch)
-            except Exception as exc:  # one bad RIC can fail a batch: retry one by one
-                print(f"batch {i // BATCH + 1} failed ({type(exc).__name__}); retrying singly", file=sys.stderr)
-                got = {}
-                for ric in batch:
-                    try:
-                        got.update(closes(ld.get_history(universe=ric, fields=[FIELD], interval="daily",
-                                                         start=start.isoformat(), end=end.isoformat()), [ric]))
-                    except Exception as single:
-                        print(f"  {ric}: {type(single).__name__}", file=sys.stderr)
-            for ric in batch:
-                if not got.get(ric):
-                    missing.append(ric)
-                for day, close in sorted(got.get(ric, {}).items()):
-                    rows.append((day, by_ric[ric], ric, close))
-            print(f"{min(i + BATCH, len(rics))}/{len(rics)} RICs", file=sys.stderr)
+        # One request per RIC: multi-RIC requests failed with TypeError in lseg-data 2.1.1.
+        for n, (ric, symbol) in enumerate(by_ric.items(), 1):
+            got = closes(ric, start, end)
+            if not got:
+                missing.append(ric)
+            rows += [(day, symbol, ric, close) for day, close in sorted(got.items())]
+            if n % 50 == 0 or n == len(by_ric):
+                print(f"{n}/{len(by_ric)} RICs", file=sys.stderr)
     finally:
         session.close()
 
