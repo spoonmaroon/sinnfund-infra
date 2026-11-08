@@ -1,5 +1,7 @@
-from fastapi import FastAPI, Response
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from dotenv import load_dotenv
 
 import csv
@@ -11,6 +13,9 @@ import time
 import pandas as pd
 import requests
 
+from paper_signals import router as paper_router
+from signal_ledger import exporter, router as signal_router, sender
+
 
 # ============================================================
 # Configuration
@@ -19,6 +24,8 @@ import requests
 load_dotenv()
 
 API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+if not API_KEY:
+    raise RuntimeError("Missing TWELVE_DATA_API_KEY")
 
 PREDICTIONS_DIRECTORY = "submitted_predictions"
 LOG_DIRECTORY = "logs"
@@ -50,15 +57,24 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request, error):
+    # Echoed NaN/Infinity inputs cannot be serialized as JSON and previously caused a 500.
+    return JSONResponse(status_code=422, content={"detail": [
+        {key: item[key] for key in ("type", "loc", "msg")} for item in error.errors()
+    ]})
+
+
 # ============================================================
 # Models
 # ============================================================
 
 class Prediction(BaseModel):
-    researcher: str
-    ticker: str
-    price: float
-    timestamp: int
+    model_config = ConfigDict(extra="forbid", strict=True)
+    researcher: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,64}$")
+    ticker: str = Field(pattern=r"^[A-Z0-9][A-Z0-9 .-]{0,19}$")
+    price: float | int = Field(gt=0, allow_inf_nan=False)
+    timestamp: int = Field(gt=0)
 
 
 # ============================================================
@@ -124,24 +140,17 @@ def get_price(ticker):
             timeout=5
         )
     except requests.RequestException as error:
-        logger.error(
-            f"Price request failed ticker={ticker} error={error}"
-        )
+        logger.error("Price request failed (%s)", type(error).__name__)
         return -1
 
     if response.status_code != 200:
-        logger.warning(
-            f"Price API error ticker={ticker} "
-            f"status={response.status_code}"
-        )
+        logger.warning("Price API returned status=%s", response.status_code)
         return -1
 
     data = response.json()
 
     if "previous_close" not in data:
-        logger.warning(
-            f"No previous close found ticker={ticker}"
-        )
+        logger.warning("Price API response has no previous close")
         return -1
 
     return float(data["previous_close"])
@@ -222,21 +231,15 @@ def empty_portfolio():
 # ============================================================
 
 @app.post("/prediction")
-def submit_prediction(prediction: Prediction):
-    logger.info(
-        f"Prediction received "
-        f"researcher={prediction.researcher} "
-        f"ticker={prediction.ticker} "
-        f"price={prediction.price} "
-        f"timestamp={prediction.timestamp}"
-    )
+def submit_prediction(prediction: Prediction, owner=Depends(sender)):
+    if prediction.researcher != owner:
+        raise HTTPException(403, "Researcher must match the authenticated sender")
+    logger.info("Prediction received from authenticated sender")
 
     current_price = get_price(prediction.ticker)
 
     if current_price == -1:
-        logger.warning(
-            f"Invalid ticker submitted: {prediction.ticker}"
-        )
+        logger.warning("Prediction price lookup failed")
 
         return {
             "status": "invalid ticker"
@@ -273,7 +276,7 @@ def submit_prediction(prediction: Prediction):
 
 
 @app.post("/reset")
-def reset():
+def reset(_operator=Depends(exporter)):
     global current_file
 
     old_file = current_file
@@ -297,7 +300,7 @@ def reset():
 
 
 @app.get("/portfolio")
-def portfolio():
+def portfolio(_operator=Depends(exporter)):
     df = build_portfolio()
 
     return Response(
@@ -306,5 +309,7 @@ def portfolio():
     )
 
 # Explicit authenticated paper inbox; legacy research submissions never execute orders.
-from paper_signals import router as paper_router
 app.include_router(paper_router)
+
+# Authenticated editable queue and on-demand LIVE CSV export.
+app.include_router(signal_router)

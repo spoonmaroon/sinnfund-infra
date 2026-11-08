@@ -1,5 +1,7 @@
 # ADR-0015: Use 100 validated historical scenarios in the initial prototype
 
+> **Superseded 2026-11-08 by [ADR-0029](./0029-riskfolio-risk-job-replaces-stage-pipeline.md):** the risk job uses 500 scenarios.
+
 - **Date:** 2026-10-24
 - **Status:** Accepted — prototype parameter
 

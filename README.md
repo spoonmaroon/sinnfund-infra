@@ -26,7 +26,7 @@ security and recovery details.
 
 The project addresses the fund's need for dependable portfolio visibility between instructor-distributed reports. It separates **read-only portfolio reporting** from research signals and any future trade-staging or execution workflow. See [Project Vision](docs/product/project-vision.md) for the motivation and planned workstreams.
 
-> **Repository scope:** This repository contains the applications listed below. The historical VaR/risk pipeline is **intentionally maintained outside this repository at present**. Its design decisions and operational history appear in `docs/`, but its application code, generated reports, and deployment units are not included here. This is a deliberate boundary, not a missing installation step.
+> **Repository scope:** This repository contains the applications listed below, including the current risk job (`services/flex-web-live/risk/`, ADR-0029) behind the dashboard's Risk management tab. The retired Stage 1–4 VaR pipeline under `/opt/sinn-risk-stage*` is **not** in this repository; its decisions and history remain in `docs/`.
 
 This is the **version-controlled source**, not a live application directory. Deployed services run
 under `/opt/`, the static website is served from `/var/www/sinnfund/`, and runtime state and
@@ -47,9 +47,9 @@ credentials remain outside Git. Repository structure does not determine deployme
               |                 |
               v                 v
        flex-web :8001    flex-web-live :8002 <--- lseg-feed :8091
-       Flex close marks  Delayed/cached marks     ^
-              |                 |                 |
-              |                 |            LSEG Data API
+       proxy to :8002    dashboard UI + API       ^
+              |          + risk/latest.json       |
+              |          (risk_job.py)       LSEG Data API
               v                 v
            /close/            /live/
               |                 |
@@ -65,15 +65,16 @@ credentials remain outside Git. Repository structure does not determine deployme
                 /var/www/sinnfund/index.html
 ```
 
-The ingestion service downloads and archives complete Flex XML reports. Both dashboards read the same archived reports without modifying them. `flex-web-live` requests delayed/cached prices from the localhost-only LSEG API and falls back to Flex closing marks when suitable quotes are unavailable. The prediction API is a separate application, not an authorization path for trade execution.
+The ingestion service downloads and archives Flex XML reports, keeping statements with excluded accounts aside as `.partial` and retrying them (ADR-0031). `flex-web-live` serves the portfolio dashboard and API: it reads the archives without modifying them, reprices from the localhost-only LSEG API, and falls back to Flex closing marks when suitable quotes are unavailable. `flex-web` is now a pass-through to it, so `/close/` and `/live/` show the same dashboard. The prediction API is a separate application, not an authorization path for trade execution.
 
 ## Components
 
 | Repository directory | Purpose | Production location | systemd unit | Listener / public route |
 |---|---|---|---|---|
 | `services/flex-ingest/` | Scheduled IBKR Flex retrieval and raw XML archiving | `/opt/flex-ingest/` | `flex-ingest.service`, `flex-ingest.timer` | No HTTP listener |
-| `services/flex-web/` | Read-only previous-close positions and tax-lot dashboard | `/opt/flex-web/` | `flex-web.service` | `127.0.0.1:8001` → `/close/` |
-| `services/flex-web-live/` | Read-only dashboard repriced using delayed/cached LSEG quotes | `/opt/flex-web-live/` | `flex-web-live.service` | `127.0.0.1:8002` → `/live/` |
+| `services/flex-web/` | Compatibility proxy to `flex-web-live` | `/opt/flex-web/` | `flex-web.service` | `127.0.0.1:8001` → `/close/` |
+| [`services/flex-web-live/`](services/flex-web-live/README.md) | Portfolio dashboard (Dashboard, Positions, Sectors, Risk management) and read-only API | `/opt/flex-web-live/` | `flex-web-live.service` | `127.0.0.1:8002` → `/live/` |
+| [`services/flex-web-live/risk/`](services/flex-web-live/risk/README.md) | Riskfolio-Lib VaR/ES job writing `risk/latest.json` | `/opt/flex-web-live/risk/` (`risk-venv`) | none yet (user crontab planned) | Served via `/live/api/v1/risk` |
 | `services/lseg-feed/` | LSEG session, RIC normalization, local pricing API | `/opt/lseg-feed/` | `lseg-feed.service` | `127.0.0.1:8091` (internal only) |
 | [`services/prediction-api/`](services/prediction-api/README.md) | Prediction and paper-signal API | `/opt/prediction-api/` | `prediction-api.service` | `127.0.0.1:8003` → `/prediction/` |
 | `website/` | Static landing page | `/var/www/sinnfund/` | Served by Nginx | `/` |
@@ -103,6 +104,11 @@ sinnfund-infra/
 │   ├── flex-web-live/
 │   │   ├── web-live.py
 │   │   ├── parse_flex_positions_live.py
+│   │   ├── portfolio_api.py
+│   │   ├── build_sectors.py, sectors.json
+│   │   ├── ui/                  # dashboard page, CSS, JS
+│   │   ├── risk/                # risk job, LSEG backfill, tests
+│   │   ├── tests/
 │   │   ├── requirements.txt
 │   │   ├── README.md
 │   │   └── deploy/
@@ -122,23 +128,26 @@ sinnfund-infra/
 │   ├── index.html
 │   └── deploy.sh
 ├── deploy/
-│   └── nginx/
-│       └── sinnfund.jkoh.dev
+│   ├── nginx/
+│   │   └── sinnfund.jkoh.dev
+│   └── risk-pipeline/
+│       └── fix-risk-pipeline.sh   # admin: LSEG history refresh + API
 └── docs/
     ├── notes.md
     ├── product/
     │   └── project-vision.md
     ├── decisions/
     │   ├── README.md
-    │   └── 0001–0026-*.md
+    │   └── 0001–0031-*.md
     ├── incidents/
     │   ├── README.md
     │   ├── _template.md
-    │   └── 0001–0012-*.md
+    │   └── 0001–0015-*.md
     └── journal/
         ├── README.md
         ├── _templates/
-        └── 2026-10/
+        ├── 2026-10/
+        └── 2026-11/
 ```
 
 The `services/` paths above reflect the reorganized source layout. Deployed application paths under `/opt/` are unchanged.
@@ -153,6 +162,8 @@ The `services/` paths above reflect the reorganized source layout. Deployed appl
 | [Engineering journal](docs/journal/README.md) | Dated development sessions and personal technical reflections |
 | [Additional notes](docs/notes.md) | Working project notes |
 | [Prediction API operations](services/prediction-api/README.md) | Issue, rotate, verify, use, and revoke signal API keys |
+| [Portfolio dashboard](services/flex-web-live/README.md) | Pages, endpoints, how totals/day change/NLV are built, tests, deploy |
+| [Risk management job](services/flex-web-live/risk/README.md) | VaR method, risk venv, LSEG price backfill, schedule |
 
 Some ADRs and incidents discuss the risk/VaR prototype and proposed TAMU Kion/AWS hosting. Those records document the broader project history and **do not imply that the corresponding services or cloud resources are included in, or deployed from, this repository**. Trade staging through IBKR BasketTrader and researcher prediction integration are also separate workstreams; neither grants the public dashboards trading authority.
 
@@ -165,6 +176,7 @@ Some ADRs and incidents discuss the risk/VaR prototype and proposed TAMU Kion/AW
 | `/opt/lseg-feed/.env` | LSEG authentication credentials | **Never commit** |
 | `/opt/lseg-feed/lseg-symbols.env` | Active instrument-to-RIC mapping | Keep out of Git in the current setup; use sanitized examples |
 | `/opt/prediction-api/data/`, `logs/`, `submitted_predictions/` | Prediction outputs and operational state, when configured | **Never commit** |
+| `/opt/flex-web-live/risk/prices.csv`, `latest.json` | Licensed LSEG daily closes and the generated risk report | **Never commit** |
 | `venv/`, `.venv/`, `__pycache__/` | Local Python environments and generated files | **Never commit** |
 
 No live IBKR or LSEG session is required to display positions from an already archived Flex report. The live dashboard contacts the private LSEG API rather than storing LSEG credentials in the website service.
@@ -173,15 +185,16 @@ No live IBKR or LSEG session is required to display positions from an already ar
 
 Pushing to GitHub **does not automatically deploy** code. Copy reviewed files from the repository into the corresponding `/opt/<service>/` installation, preserving `.env` files, virtual environments, application ownership, and runtime state. Restart only the affected service.
 
-### Example: previous-close dashboard
+### Example: portfolio dashboard
+
+Operators in `trading-dev` can write `/opt/flex-web-live`; their sudo only allows restarting named units, and only in this exact form:
 
 ```bash
-# Run from the repository root on the VPS.
-sudo install -m 644 services/flex-web/web.py /opt/flex-web/web.py
-sudo install -m 644 services/flex-web/parse_flex_positions.py   /opt/flex-web/parse_flex_positions.py
-sudo systemctl restart flex-web.service
-sudo systemctl status flex-web.service --no-pager
+rsync -a services/flex-web-live/{web-live.py,portfolio_api.py,parse_flex_positions_live.py,sectors.json,ui} sinnfund:/opt/flex-web-live/
+ssh sinnfund 'sudo -n /usr/bin/systemctl restart flex-web-live.service'
 ```
+
+Back up first (see the service README). Nginx, `/var/www`, and the LSEG history and risk-stage units need an admin.
 
 For dependency changes, install the service's updated `requirements.txt` into its existing virtual environment. For `.service` or `.timer` changes, install the reviewed unit under `/etc/systemd/system/`, run `sudo systemctl daemon-reload`, and restart or enable the relevant unit as appropriate.
 
@@ -226,6 +239,7 @@ journalctl -u lseg-feed.service -n 50 --no-pager
 # Local service health
 curl -fsS http://127.0.0.1:8001/healthz
 curl -fsS http://127.0.0.1:8002/healthz
+curl -fsS http://127.0.0.1:8002/api/v1/risk | head -c 200
 curl -i http://127.0.0.1:8091/health
 
 # Public HTTPS landing page

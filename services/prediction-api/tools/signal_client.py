@@ -45,9 +45,9 @@ def matching(pattern, label):
     return parse
 
 
-def credential():
-    token = os.getenv("SIGNAL_API_KEY")
-    filename = os.getenv("SIGNAL_API_KEY_FILE")
+def credential(key_file=None):
+    token = None if key_file else os.getenv("SIGNAL_API_KEY")
+    filename = key_file or os.getenv("SIGNAL_API_KEY_FILE")
     if token and filename:
         raise SystemExit("Set only one of SIGNAL_API_KEY or SIGNAL_API_KEY_FILE")
     if not token and not filename:
@@ -133,7 +133,14 @@ def parser():
     create.add_argument("timestamp", type=positive_int, nargs="?")
     create.add_argument("--limit-price", type=positive_price)
 
-    commands.add_parser("list")
+    listing = commands.add_parser("list")
+    listing.add_argument("--table", action="store_true")
+    listing.add_argument("--destination", choices=("LIVE", "PAPER"))
+    listing.add_argument("--status")
+
+    export = commands.add_parser("export", help="Export ALL pending LIVE signals; CSV stays on server")
+    export.add_argument("--key-file", help="Optional exporter/admin key file; otherwise use your saved key")
+    commands.add_parser("clear-live", help="Admin only: clear all pending LIVE signals")
 
     get = commands.add_parser("get")
     get.add_argument("signal_id", type=signal_id)
@@ -160,7 +167,7 @@ def main(argv=None, opener=None):
     arguments = parser().parse_args(argv)
     if arguments.command in ("save-key", "configure-key"):
         return configure_key()
-    token = credential()
+    token = credential(arguments.key_file) if arguments.command == "export" else credential()
     if arguments.command == "create":
         body = {name: getattr(arguments, name) for name in
                 ("signal_id", "destination", "ticker", "price", "timestamp")}
@@ -175,6 +182,18 @@ def main(argv=None, opener=None):
         response = api_request("POST", "/signals", token, body, opener)
     elif arguments.command == "list":
         response = api_request("GET", "/signals", token, opener=opener)
+        if arguments.destination or arguments.status or arguments.table:
+            response = [item for item in response
+                        if (not arguments.destination or item["signal"]["destination"] == arguments.destination)
+                        and (not arguments.status or item["status"] == arguments.status)]
+        if arguments.table:
+            print_table([{**item["signal"], "status": item["status"], "revision": item["revision"]}
+                         for item in response])
+            return 0
+    elif arguments.command == "export":
+        response = api_request("POST", "/signals/export", token, opener=opener)
+    elif arguments.command == "clear-live":
+        response = api_request("POST", "/signals/clear", token, opener=opener)
     elif arguments.command == "get":
         response = api_request("GET", "/signals/" + quote(arguments.signal_id), token, opener=opener)
     elif arguments.command == "edit":
@@ -208,6 +227,16 @@ def main(argv=None, opener=None):
     json.dump(response, sys.stdout, indent=2)
     sys.stdout.write("\n")
     return 0
+
+
+def print_table(rows):
+    fields = ("owner", "signal_id", "destination", "ticker", "price", "status", "revision")
+    values = [[str(row.get(field, "")) for field in fields] for row in rows]
+    widths = [max(len(field), *(len(row[i]) for row in values)) if values else len(field)
+              for i, field in enumerate(fields)]
+    for row in [list(fields), *values]:
+        print("  ".join(value.ljust(width) for value, width in zip(row, widths)).rstrip())
+    print(f"{len(rows)} signal(s)")
 
 
 def delete_only(token, opener=None):

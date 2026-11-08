@@ -1,94 +1,108 @@
-# IBKR Flex Live Dashboard — `web-live.py`
+# Portfolio dashboard and API (`flex-web-live`)
 
-## Overview
+The single read-only portfolio service. It reads the latest immutable IBKR Flex
+archive, reprices stocks from one cached LSEG snapshot, and serves both the
+dashboard UI and its JSON API. It never writes to the archives and exposes no
+write endpoints.
 
-`web-live.py` serves a read-only portfolio dashboard using archived Interactive Brokers (IBKR) Flex XML statements and delayed London Stock Exchange Group (LSEG) prices. It displays account holdings, position values, unrealized P&L, and expandable tax lots.
+Public routes: `https://sinnfund.jkoh.dev/live/` (primary) and `/close/`, which
+`services/flex-web` proxies to this service unchanged. A redirect from the site
+root to `/live/` is prepared in `deploy/nginx/` but needs an admin to install.
 
-The dashboard reads the newest archived Flex reporting date, retrieves prices from the local `lseg-feed` API, and revalues eligible stock positions and lots in memory. **The original Flex XML archives are never modified.**
+## Dashboard pages
 
-### Why Combine Flex and LSEG?
-
-IBKR Flex reports provide reliable end-of-day positions, account data, cost basis, and tax lots, but their prices are not current. LSEG provides approximately 15-minute delayed quotes for updating those valuations without requiring a live IBKR trading session.
-
-The parser makes **one HTTP request to `/prices` per dashboard report**, regardless of the number of accounts or positions. The web application makes a separate request to `/health` to display the last LSEG snapshot timestamp. No LSEG credentials are stored or used by `flex-web-live`.
-
-## Functions
-
-| Function | Purpose |
+| Page | What it shows |
 |---|---|
-| `get_lseg_last_snapshot_at()` | Reads `last_snapshot_at` from the local LSEG `/health` endpoint for display in the dashboard header. |
-| `load_report()` | Finds the newest Flex archive date, loads all books, parses positions and lots, and attaches the LSEG snapshot timestamp. |
-| `index()` | Serves the HTML portfolio dashboard at `/`, including embedded report data. |
-| `healthz()` | Checks for available Flex archives at `/healthz` without requesting LSEG prices. |
-| `Handler.do_GET()` | Handles `/` and `/healthz` when using the optional built-in HTTP server. |
-| `Handler.respond()` | Sends responses and security headers for the built-in HTTP server. |
-| `main()` in `web-live.py` | Starts the optional built-in HTTP server; production uses Uvicorn instead. |
-| `latest_date()` | Selects the newest dated directory containing compressed Flex XML statements. |
-| `parse_archives()` | Parses summary positions and tax lots, removes duplicate account statements, retrieves one LSEG price snapshot, and calculates updated valuations. |
-| `main()` in `parse_flex_positions_live.py` | Provides a command-line interface for exporting parsed positions and optionally lots as JSON. |
+| Dashboard | Net liquidation value (positions + cash), unrealized P&L, day change, accounts table (NLV, % allocation, positions, cash, day change, P&L), sector allocation donut. Portfolio history is off until IBKR sends daily NAV. |
+| Positions | Every holding with price, day change, market value, cost, gain/loss and price source; expandable tax lots; grouping, filters and sortable columns. |
+| Sectors | Gross exposure, net value, day change and unrealized P&L per sector; sortable columns; holdings per sector. |
+| Risk management | 1-day VaR 95/99%, expected shortfall 97.5%, S&P 500 sensitivity, account risk, top risk contributors, risk by sector, worst historical days, model exclusions. See [`risk/README.md`](risk/README.md). |
 
-### Price Selection
+Column headers sort on the first click, reverse on the second and return to the
+default order on the third.
 
-| Priority | Condition | `price_source` |
-|---|---|---|
-| 1 | LSEG connected; snapshot no more than 180 seconds old | `lseg_delayed` |
-| 2 | LSEG snapshot available and no more than 7 days old | `lseg_cached` |
-| 3 | No usable LSEG price or API unavailable | `flex` |
+## Endpoints
 
-Only `STK` records with valid, positive LSEG last-trade prices are revalued. The parser updates `mark_price`, `market_value`, and `unrealized_pnl`; options, warrants, unmatched symbols, and invalid quotes retain their Flex values. The `psuedo-live updated` flag indicates whether a replacement price was applied (the spelling matches the existing code). `percent_of_nav` remains based on the archived Flex statement.
+| Endpoint | Purpose |
+|---|---|
+| `GET /` | Dashboard page (`ui/index.html`); assets under `/static/` |
+| `GET /api/v1` | Endpoint list |
+| `GET /api/v1/portfolio` | Totals (positions, cash, NLV, day change), accounts, allocation |
+| `GET /api/v1/report` | Every position and tax lot, plus `cash` by account and `carried_forward` |
+| `GET /api/v1/positions` | Paginated position rows (`q`, `account`, `offset`, `limit` ≤ 250) |
+| `GET /api/v1/sectors` | Symbol → sector map (`sectors.json`) |
+| `GET /api/v1/history` | `{"available": false}` until the Flex archive carries daily NAV totals |
+| `GET /api/v1/risk` | Latest risk report written by `risk/risk_job.py` |
+| `GET /api/v1/prices/validation` | Close-versus-delayed coverage and gap checks |
+| `GET /healthz` | Archive availability |
 
-Cached quotes are held by `lseg-feed`; if its in-memory cache is empty after a restart, the dashboard falls back to Flex prices until new quotes are available.
+## How the numbers are built
 
-## Data Storage
+- **Currency.** Flex reports values in each position's own currency. Every total
+  converts with the row's `fx_rate_to_base` (IBKR's rate). Prices stay in local
+  currency and are labelled with it (`¥1,216`, `DKK 209.90`). See INC-0014.
+- **Day change.** If the delayed LSEG quote is from a session after the statement
+  date (market open, or closed but not yet in Flex), the change is delayed price
+  minus statement close. Otherwise it is statement close minus the previous
+  statement's close, so weekends show the last session's move and close-only
+  foreign listings still get a day change. Rows: `previous_close_price`,
+  `day_change_price`, `day_change_pct`, `day_change_value` (USD), `day_change_basis`.
+- **Net liquidation value.** Positions in USD plus each account's
+  `CashReportCurrency[currency=BASE_SUMMARY].endingCash`. It excludes accruals and
+  is not official NAV (INC-0007, ADR-0028). Accounts with cash but no positions
+  are listed; accounts with neither are hidden.
+- **Accounts left out of a statement.** IBKR sometimes excludes accounts from a
+  day's file. Accounts with no `FlexStatement` in the latest file are carried
+  forward from the previous file, repriced like every other row, and named in
+  `carried_forward` and on the status pill (INC-0013, ADR-0031).
+- **Account names** come from `ui/account-names.json` (account number → name,
+  from the fund's account list; IBKR's `acctAlias` is empty). It is kept on the
+  server and out of git because the repo is public. Without it the dashboard
+  shows account numbers only.
+- **Sectors** come from `sectors.json`, rebuilt with
+  `python3 build_sectors.py <saved /api/v1/report response>`.
 
-The application reads archived reports from `/var/lib/flex-ingest/flex/data/` by default. `FLEX_ARCHIVE_DIR` can override this directory, and `LSEG_HEALTH_URL` can override the health endpoint (default `http://127.0.0.1:8091/health`). The parser's price endpoint is `http://127.0.0.1:8091/prices`.
+The original statement fields are always kept on each row (`close_mark_price`,
+`close_market_value`, `close_unrealized_pnl`). When an LSEG quote passes the
+instrument and price-ratio checks the row also carries `delayed_*`, `quote_*`
+and `price_validation`, and the legacy `mark_price`, `market_value` and
+`unrealized_pnl` hold the delayed values.
 
-```text
-/opt/flex-web-live/
-├── web-live.py
-├── parse_flex_positions_live.py
-├── requirements.txt
-└── venv/
+## Many viewers at once
 
-/var/lib/flex-ingest/flex/data/
-└── YYYYMMDD/
-    └── <book>.xml.gz
-```
+- `ReportCache` shares one parse for 30 seconds. While one request refreshes,
+  others get the previous snapshot instead of waiting; a failed refresh keeps
+  serving the last good snapshot.
+- JSON responses are encoded and gzipped once per refresh (`shared_json`).
+- Measured on 2026-11-08 (2 vCPU, one Uvicorn worker): 30 simultaneous viewers,
+  720 requests, no errors, page assets p50 ≈ 0.7 s, full report p50 ≈ 1.1 s
+  (previously ≈ 5 s).
 
-The dashboard stores no new positions or price files. All parsing and revaluation occur on page requests, using the latest archive and current or cached LSEG API response.
-
-## Systemd Automation
-
-**`flex-web-live.service`** runs the FastAPI application continuously under the dedicated `svc-flex` service account. Uvicorn listens on `127.0.0.1:8002`; Nginx exposes the dashboard at `/live/` on the fund website.
-
-The configured service launches:
+## Tests
 
 ```bash
-/opt/flex-web-live/venv/bin/uvicorn web-live:app --host 127.0.0.1 --port 8002
+# from services/flex-web-live, with the service venv
+PYTHONPATH=. python -m unittest tests/test_combined_prices.py tests/test_dashboard_routes.py \
+  tests/test_day_change.py tests/test_concurrency.py
+node --test tests/            # dashboard rendering, no npm packages
+# risk job (needs the risk venv on the server)
+/opt/flex-web-live/risk-venv/bin/python -m unittest risk/test_risk_job.py
 ```
 
-**No `flex-web-live.timer` is needed.** The dashboard stays running and reads the latest archives on demand. Separately, `flex-ingest.timer` schedules IBKR report downloads, while `lseg-feed.service` manages delayed quote subscriptions and their market-hours schedule.
+`tests/dashboard.test.mjs` runs `ui/app.js` against fake API data with a minimal
+DOM stand-in and checks totals, FX, day change, accounts, sectors, sorting, the
+history gate and the risk tab.
 
-The web application has no built-in authentication. Keep the Uvicorn listener on loopback and enforce appropriate access control at Nginx or another reverse proxy.
+## Deploy
 
-### Management
+Uvicorn listens on `127.0.0.1:8002` (`deploy/flex-web-live.service`, user `svc-flex`).
 
 ```bash
-# Inspect service status
-systemctl status flex-web-live.service
-
-# Restart after code changes
-sudo systemctl restart flex-web-live.service
-
-# View application logs
-journalctl -u flex-web-live.service -n 50
-
-# Test local health endpoint
-curl -i http://127.0.0.1:8002/healthz
-
-# Inspect LSEG feed and cached prices
-curl -s http://127.0.0.1:8091/health
-curl -s http://127.0.0.1:8091/prices
+# back up, copy, restart (operators in trading-dev can write /opt/flex-web-live)
+ssh sinnfund 'cd /opt/flex-web-live && B=deploy-backups/<label>-$(date -u +%Y%m%dT%H%M%SZ) && mkdir -p $B && cp -a web-live.py portfolio_api.py parse_flex_positions_live.py ui $B/'
+rsync -a web-live.py portfolio_api.py parse_flex_positions_live.py sectors.json ui sinnfund:/opt/flex-web-live/
+ssh sinnfund 'sudo -n /usr/bin/systemctl restart flex-web-live.service'
 ```
 
-The ingestion service archives the underlying holdings; `lseg-feed` supplies delayed prices; `parse_flex_positions_live.py` combines them; and `web-live.py` renders the read-only dashboard.
+The sudoers rule only matches that exact form (full path and `.service`).
+Static-only changes under `ui/` and `sectors.json` need no restart.

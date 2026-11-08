@@ -1,0 +1,1558 @@
+{
+  "generated_for": "20261106",
+  "sectors": {
+    "4063.T": "Unclassified",
+    "8136.T": "Unclassified",
+    "9501.T": "Unclassified",
+    "AAAU": "Commodities",
+    "AAT": "Real Estate",
+    "ABNB": "Consumer Discretionary",
+    "ACNB": "Financials",
+    "ACRS": "Health Care",
+    "ADBE": "Information Technology",
+    "ADM": "Consumer Staples",
+    "AEHR": "Industrials",
+    "AGLT": "Industrials",
+    "AGLTW": "Unclassified",
+    "AGNT": "Financials",
+    "AKAM": "Consumer Discretionary",
+    "ALCWF": "Unclassified",
+    "ALHC": "Health Care",
+    "ALM": "Materials",
+    "ALMS": "Health Care",
+    "AMAT": "Information Technology",
+    "AMLX": "Health Care",
+    "AMZN": "Consumer Discretionary",
+    "ANF": "Consumer Discretionary",
+    "ANGX": "Consumer Discretionary",
+    "APA": "Energy",
+    "APP": "Information Technology",
+    "ARA": "Unclassified",
+    "ARCO": "Consumer Discretionary",
+    "ARE": "Real Estate",
+    "AROW": "Financials",
+    "ASML": "Information Technology",
+    "ASTS": "Consumer Discretionary",
+    "ATEX": "Communication Services",
+    "ATZ": "Unclassified",
+    "AVAV": "Industrials",
+    "AVGO": "Information Technology",
+    "AXTI": "Information Technology",
+    "BABL": "Unclassified",
+    "BAND": "Information Technology",
+    "BBW": "Consumer Discretionary",
+    "BE": "Energy",
+    "BETA": "Industrials",
+    "BFH": "Financials",
+    "BFST": "Financials",
+    "BIL": "Fixed Income",
+    "BKNG": "Consumer Discretionary",
+    "BL": "Information Technology",
+    "BRBR": "Consumer Staples",
+    "BRK B": "Unclassified",
+    "BSX": "Health Care",
+    "BULLW": "Financials",
+    "BUR": "Financials",
+    "BWET": "Unclassified",
+    "BX": "Financials",
+    "BXSL": "Financials",
+    "CAC": "Financials",
+    "CADL": "Health Care",
+    "CALM": "Consumer Staples",
+    "CANE": "Unclassified",
+    "CBRS": "Information Technology",
+    "CCB": "Financials",
+    "CCL   270115P00020000": "Unclassified",
+    "CEG": "Utilities",
+    "CGON": "Health Care",
+    "CIB": "Financials",
+    "CL": "Consumer Discretionary",
+    "CLMT": "Energy",
+    "CLYM": "Health Care",
+    "CMRE": "Consumer Discretionary",
+    "CNC": "Health Care",
+    "COHU": "Industrials",
+    "COIN": "Financials",
+    "COP": "Energy",
+    "COR": "Health Care",
+    "CORN": "Unclassified",
+    "COST": "Consumer Discretionary",
+    "CRCL": "Financials",
+    "CRDO": "Information Technology",
+    "CRH": "Industrials",
+    "CRM": "Information Technology",
+    "CRMD": "Health Care",
+    "CRWD": "Information Technology",
+    "CSHR": "Financials",
+    "CSHRW": "Financials",
+    "CUBI": "Financials",
+    "CVBF": "Financials",
+    "CVNA": "Consumer Discretionary",
+    "CYRX": "Health Care",
+    "D05": "Unclassified",
+    "DASH": "Consumer Discretionary",
+    "DDOG": "Information Technology",
+    "DFTX": "Health Care",
+    "DK": "Energy",
+    "DT": "Information Technology",
+    "DUOL": "Information Technology",
+    "ECHO": "Consumer Discretionary",
+    "EG": "Financials",
+    "EQNR": "Energy",
+    "EQT": "Energy",
+    "ERAS": "Health Care",
+    "ESTC": "Information Technology",
+    "ETON": "Health Care",
+    "EVC": "Industrials",
+    "EVMN": "Health Care",
+    "EXPE": "Consumer Discretionary",
+    "FBP": "Financials",
+    "FCFS": "Consumer Discretionary",
+    "FCX": "Materials",
+    "FFIN": "Financials",
+    "FG": "Financials",
+    "FIZZ": "Consumer Staples",
+    "FLBR": "Diversified Funds",
+    "FLY": "Industrials",
+    "FRME": "Financials",
+    "FSLY": "Information Technology",
+    "FTW WS": "Unclassified",
+    "GDX": "Commodities",
+    "GDXJ": "Commodities",
+    "GEHC": "Health Care",
+    "GEO": "Consumer Discretionary",
+    "GFUZW": "Utilities",
+    "GLD": "Commodities",
+    "GLD   270115C00410000": "Unclassified",
+    "GLD   270115P00370000": "Unclassified",
+    "GLNG": "Consumer Discretionary",
+    "GLXY": "Financials",
+    "GOOG": "Information Technology",
+    "GOOGL": "Information Technology",
+    "GPRE": "Industrials",
+    "GRABW": "Consumer Discretionary",
+    "GRMN": "Industrials",
+    "GSAT": "Consumer Discretionary",
+    "GTM": "Information Technology",
+    "HBNC": "Financials",
+    "HFWA": "Financials",
+    "HG": "Financials",
+    "HOOD": "Financials",
+    "HRTG": "Financials",
+    "HTH": "Financials",
+    "HY9H": "Unclassified",
+    "HYG": "Fixed Income",
+    "IBM": "Information Technology",
+    "ICHR": "Information Technology",
+    "IMSR": "Industrials",
+    "IMSRW": "Industrials",
+    "INDB": "Financials",
+    "INFQ": "Information Technology",
+    "INFQ WS": "Unclassified",
+    "INNV": "Health Care",
+    "INTC": "Information Technology",
+    "INVA": "Health Care",
+    "IREN": "Financials",
+    "IVV": "Diversified Funds",
+    "IWM": "Diversified Funds",
+    "IWM   261120P00280000": "Unclassified",
+    "JBHT": "Industrials",
+    "JBSS": "Consumer Staples",
+    "JOBY": "Industrials",
+    "JPM": "Financials",
+    "KDK": "Information Technology",
+    "KDKRW": "Information Technology",
+    "KIE": "Financials",
+    "KKR": "Financials",
+    "KRKNF": "Unclassified",
+    "KRNY": "Financials",
+    "KRSP WS": "Unclassified",
+    "KYIVW": "Communication Services",
+    "LASR": "Information Technology",
+    "LFST": "Health Care",
+    "LINC": "Real Estate",
+    "LITE": "Communication Services",
+    "LLY": "Health Care",
+    "LMB": "Consumer Discretionary",
+    "LMRI": "Health Care",
+    "LNC": "Financials",
+    "LNG": "Utilities",
+    "MA": "Consumer Discretionary",
+    "MACIW": "Financials",
+    "MAXX": "Unclassified",
+    "MAZE": "Health Care",
+    "MBX": "Health Care",
+    "MCGAW": "Unclassified",
+    "MCK": "Health Care",
+    "MCY": "Financials",
+    "MEI": "Information Technology",
+    "META": "Information Technology",
+    "MIR": "Industrials",
+    "MP": "Materials",
+    "MPWR": "Information Technology",
+    "MRNA": "Health Care",
+    "MSFT": "Information Technology",
+    "MTDR": "Energy",
+    "MTRN": "Industrials",
+    "MU": "Information Technology",
+    "MVST": "Other",
+    "MXL": "Information Technology",
+    "NAVN": "Information Technology",
+    "NB": "Materials",
+    "NBIS": "Information Technology",
+    "NBR": "Energy",
+    "NESR": "Energy",
+    "NFLX": "Consumer Discretionary",
+    "NRDS": "Information Technology",
+    "NTNX": "Information Technology",
+    "NUTX": "Consumer Discretionary",
+    "NVCT": "Health Care",
+    "NVDA": "Information Technology",
+    "NVO": "Health Care",
+    "NXATW": "Unclassified",
+    "ODFL": "Industrials",
+    "ONDS": "Information Technology",
+    "OOMA": "Information Technology",
+    "PACK": "Consumer Discretionary",
+    "PANW": "Information Technology",
+    "PAR": "Other",
+    "PARR": "Energy",
+    "PAYS": "Information Technology",
+    "PBF": "Energy",
+    "PBR": "Energy",
+    "PFSI": "Financials",
+    "PHYS": "Commodities",
+    "PKOH": "Industrials",
+    "PLTR": "Information Technology",
+    "PRCT": "Health Care",
+    "PRM": "Industrials",
+    "PSIX": "Industrials",
+    "PSQL": "Information Technology",
+    "PSQLW": "Information Technology",
+    "PSX": "Energy",
+    "PTEN": "Energy",
+    "PTRN": "Consumer Discretionary",
+    "PUBM": "Information Technology",
+    "Q": "Information Technology",
+    "QDEL": "Health Care",
+    "QQQ": "Diversified Funds",
+    "REI": "Energy",
+    "REZI": "Industrials",
+    "RH": "Consumer Discretionary",
+    "RIGD": "Unclassified",
+    "RKLB": "Industrials",
+    "RWEOY": "Unclassified",
+    "RXT": "Information Technology",
+    "SD": "Energy",
+    "SERV": "Industrials",
+    "SHY": "Fixed Income",
+    "SLDE": "Financials",
+    "SLS": "Health Care",
+    "SLV": "Commodities",
+    "SM": "Energy",
+    "SMPL": "Consumer Staples",
+    "SNDK": "Information Technology",
+    "SPCX": "Information Technology",
+    "SPGI": "Financials",
+    "SPHR": "Consumer Discretionary",
+    "SPNS": "Unclassified",
+    "STNE": "Information Technology",
+    "SVIAW": "Financials",
+    "TCBI": "Financials",
+    "TFC": "Financials",
+    "TH": "Consumer Discretionary",
+    "TLT": "Fixed Income",
+    "TLT   270416C00080000": "Unclassified",
+    "TMSWW": "Unclassified",
+    "TNGX": "Health Care",
+    "TNK": "Consumer Discretionary",
+    "TOWN": "Financials",
+    "TPL": "Energy",
+    "TR": "Consumer Staples",
+    "TRGP": "Utilities",
+    "TSM": "Information Technology",
+    "TSSI": "Consumer Discretionary",
+    "TT": "Industrials",
+    "TTD": "Information Technology",
+    "TTMI": "Information Technology",
+    "TTWO": "Information Technology",
+    "UBER": "Consumer Discretionary",
+    "UCTT": "Information Technology",
+    "UE": "Financials",
+    "UMAC": "Information Technology",
+    "UNFI": "Consumer Discretionary",
+    "UNH": "Health Care",
+    "UPB": "Health Care",
+    "UPWK": "Information Technology",
+    "URGN": "Health Care",
+    "UTI": "Real Estate",
+    "UUUU": "Industrials",
+    "UVE": "Financials",
+    "VERX": "Information Technology",
+    "VG": "Utilities",
+    "VIA": "Information Technology",
+    "VICR": "Information Technology",
+    "VISN": "Information Technology",
+    "VLO": "Energy",
+    "VLOSW": "Financials",
+    "VOO": "Diversified Funds",
+    "VRRM": "Consumer Discretionary",
+    "VRT": "Information Technology",
+    "VRXAW": "Health Care",
+    "VSAT": "Consumer Discretionary",
+    "VST": "Utilities",
+    "VWSC": "Unclassified",
+    "VZ": "Communication Services",
+    "WCP": "Unclassified",
+    "WEAT": "Unclassified",
+    "WVE": "Health Care",
+    "WYFI": "Financials",
+    "XBI": "Health Care",
+    "XLB": "Materials",
+    "XLC": "Communication Services",
+    "XLE": "Energy",
+    "XLF": "Financials",
+    "XLI": "Industrials",
+    "XLK": "Information Technology",
+    "XLP": "Consumer Staples",
+    "XLRE": "Real Estate",
+    "XLU": "Utilities",
+    "XLV": "Health Care",
+    "XLY": "Consumer Discretionary",
+    "XOM": "Energy",
+    "XOP": "Energy",
+    "YELP": "Consumer Discretionary",
+    "YSS": "Industrials",
+    "ZSPC": "Unclassified"
+  },
+  "metadata": {
+    "4063.T": {
+      "source": "description"
+    },
+    "8136.T": {
+      "source": "description"
+    },
+    "9501.T": {
+      "source": "description"
+    },
+    "AAAU": {
+      "source": "fund_override"
+    },
+    "AAT": {
+      "source": "Nasdaq screener",
+      "industry": "Real Estate Investment Trusts"
+    },
+    "ABNB": {
+      "source": "Nasdaq screener",
+      "industry": "Diversified Commercial Services"
+    },
+    "ACNB": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "ACRS": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "ADBE": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "ADM": {
+      "source": "Nasdaq screener",
+      "industry": "Packaged Foods"
+    },
+    "AEHR": {
+      "source": "Nasdaq screener",
+      "industry": "Electrical Products"
+    },
+    "AGLT": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "AGLTW": {
+      "source": "description"
+    },
+    "AGNT": {
+      "source": "Nasdaq screener",
+      "industry": "Real Estate"
+    },
+    "AKAM": {
+      "source": "Nasdaq screener",
+      "industry": "Business Services"
+    },
+    "ALCWF": {
+      "source": "description"
+    },
+    "ALHC": {
+      "source": "Nasdaq screener",
+      "industry": "Medical Specialities"
+    },
+    "ALM": {
+      "source": "Nasdaq screener",
+      "industry": "Other Metals and Minerals"
+    },
+    "ALMS": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "AMAT": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "AMLX": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "AMZN": {
+      "source": "Nasdaq screener",
+      "industry": "Catalog/Specialty Distribution"
+    },
+    "ANF": {
+      "source": "Nasdaq screener",
+      "industry": "Clothing/Shoe/Accessory Stores"
+    },
+    "ANGX": {
+      "source": "Nasdaq screener",
+      "industry": "Movies/Entertainment"
+    },
+    "APA": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "APP": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "ARA": {
+      "source": "description"
+    },
+    "ARCO": {
+      "source": "Nasdaq screener",
+      "industry": "Restaurants"
+    },
+    "ARE": {
+      "source": "Nasdaq screener",
+      "industry": "Real Estate Investment Trusts"
+    },
+    "AROW": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "ASML": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "ASTS": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "ATEX": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "ATZ": {
+      "source": "description"
+    },
+    "AVAV": {
+      "source": "Nasdaq screener",
+      "industry": "Aerospace"
+    },
+    "AVGO": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "AXTI": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "BABL": {
+      "source": "description"
+    },
+    "BAND": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "BBW": {
+      "source": "Nasdaq screener",
+      "industry": "Recreational Games/Products/Toys"
+    },
+    "BE": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "BETA": {
+      "source": "Nasdaq screener",
+      "industry": "Aerospace"
+    },
+    "BFH": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "BFST": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "BIL": {
+      "source": "fund_override"
+    },
+    "BKNG": {
+      "source": "Nasdaq screener",
+      "industry": "Transportation Services"
+    },
+    "BL": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "BRBR": {
+      "source": "Nasdaq screener",
+      "industry": "Packaged Foods"
+    },
+    "BRK B": {
+      "source": "description"
+    },
+    "BSX": {
+      "source": "Nasdaq screener",
+      "industry": "Medical/Dental Instruments"
+    },
+    "BULLW": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Bankers/Brokers/Service"
+    },
+    "BUR": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "BWET": {
+      "source": "description"
+    },
+    "BX": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Managers"
+    },
+    "BXSL": {
+      "source": "Nasdaq screener",
+      "industry": "Trusts Except Educational Religious and Charitable"
+    },
+    "CAC": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "CADL": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Biological Products (No Diagnostic Substances)"
+    },
+    "CALM": {
+      "source": "Nasdaq screener",
+      "industry": "Farming/Seeds/Milling"
+    },
+    "CANE": {
+      "source": "description"
+    },
+    "CBRS": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "CCB": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "CCL   270115P00020000": {
+      "source": "description"
+    },
+    "CEG": {
+      "source": "Nasdaq screener",
+      "industry": "Electric Utilities: Central"
+    },
+    "CGON": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Biological Products (No Diagnostic Substances)"
+    },
+    "CIB": {
+      "source": "Nasdaq screener",
+      "industry": "Commercial Banks"
+    },
+    "CL": {
+      "source": "Nasdaq screener",
+      "industry": "Package Goods/Cosmetics"
+    },
+    "CLMT": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "CLYM": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "CMRE": {
+      "source": "Nasdaq screener",
+      "industry": "Marine Transportation"
+    },
+    "CNC": {
+      "source": "Nasdaq screener",
+      "industry": "Medical Specialities"
+    },
+    "COHU": {
+      "source": "Nasdaq screener",
+      "industry": "Electrical Products"
+    },
+    "COIN": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "COP": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "COR": {
+      "source": "Nasdaq screener",
+      "industry": "Other Pharmaceuticals"
+    },
+    "CORN": {
+      "source": "description"
+    },
+    "COST": {
+      "source": "Nasdaq screener",
+      "industry": "Department/Specialty Retail Stores"
+    },
+    "CRCL": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "CRDO": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "CRH": {
+      "source": "Nasdaq screener",
+      "industry": "Building Materials"
+    },
+    "CRM": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "CRMD": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "CRWD": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "CSHR": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Bankers/Brokers/Service"
+    },
+    "CSHRW": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Bankers/Brokers/Service"
+    },
+    "CUBI": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "CVBF": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "CVNA": {
+      "source": "Nasdaq screener",
+      "industry": "Retail-Auto Dealers and Gas Stations"
+    },
+    "CYRX": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "D05": {
+      "source": "description"
+    },
+    "DASH": {
+      "source": "Nasdaq screener",
+      "industry": "Business Services"
+    },
+    "DDOG": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "DFTX": {
+      "source": "Nasdaq screener",
+      "industry": " Medicinal Chemicals and Botanical Products "
+    },
+    "DK": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "DT": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "DUOL": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "ECHO": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "EG": {
+      "source": "Nasdaq screener",
+      "industry": "Property-Casualty Insurers"
+    },
+    "EQNR": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "EQT": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "ERAS": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "ESTC": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "ETON": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "EVC": {
+      "source": "Nasdaq screener",
+      "industry": "Broadcasting"
+    },
+    "EVMN": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "EXPE": {
+      "source": "Nasdaq screener",
+      "industry": "Transportation Services"
+    },
+    "FBP": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "FCFS": {
+      "source": "Nasdaq screener",
+      "industry": "Other Specialty Stores"
+    },
+    "FCX": {
+      "source": "Nasdaq screener",
+      "industry": "Metal Mining"
+    },
+    "FFIN": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "FG": {
+      "source": "Nasdaq screener",
+      "industry": "Life Insurance"
+    },
+    "FIZZ": {
+      "source": "Nasdaq screener",
+      "industry": "Beverages (Production/Distribution)"
+    },
+    "FLBR": {
+      "source": "description"
+    },
+    "FLY": {
+      "source": "Nasdaq screener",
+      "industry": "Military/Government/Technical"
+    },
+    "FRME": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "FSLY": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "FTW WS": {
+      "source": "description"
+    },
+    "GDX": {
+      "source": "fund_override"
+    },
+    "GDXJ": {
+      "source": "fund_override"
+    },
+    "GEHC": {
+      "source": "Nasdaq screener",
+      "industry": "Medical Electronics"
+    },
+    "GEO": {
+      "source": "Nasdaq screener",
+      "industry": "Homebuilding"
+    },
+    "GFUZW": {
+      "source": "Nasdaq screener",
+      "industry": "Electric Utilities: Central"
+    },
+    "GLD": {
+      "source": "fund_override"
+    },
+    "GLD   270115C00410000": {
+      "source": "description"
+    },
+    "GLD   270115P00370000": {
+      "source": "description"
+    },
+    "GLNG": {
+      "source": "Nasdaq screener",
+      "industry": "Marine Transportation"
+    },
+    "GLXY": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Bankers/Brokers/Service"
+    },
+    "GOOG": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "GOOGL": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "GPRE": {
+      "source": "Nasdaq screener",
+      "industry": "Major Chemicals"
+    },
+    "GRABW": {
+      "source": "Nasdaq screener",
+      "industry": "Business Services"
+    },
+    "GRMN": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "GSAT": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "GTM": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "HBNC": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "HFWA": {
+      "source": "Nasdaq screener",
+      "industry": "Banks"
+    },
+    "HG": {
+      "source": "Nasdaq screener",
+      "industry": "Property-Casualty Insurers"
+    },
+    "HOOD": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Bankers/Brokers/Service"
+    },
+    "HRTG": {
+      "source": "Nasdaq screener",
+      "industry": "Property-Casualty Insurers"
+    },
+    "HTH": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "HY9H": {
+      "source": "description"
+    },
+    "HYG": {
+      "source": "fund_override"
+    },
+    "IBM": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Manufacturing"
+    },
+    "ICHR": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "IMSR": {
+      "source": "Nasdaq screener",
+      "industry": "Metal Fabrications"
+    },
+    "IMSRW": {
+      "source": "Nasdaq screener",
+      "industry": "Metal Fabrications"
+    },
+    "INDB": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "INFQ": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "INFQ WS": {
+      "source": "description"
+    },
+    "INNV": {
+      "source": "Nasdaq screener",
+      "industry": "Medical/Nursing Services"
+    },
+    "INTC": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "INVA": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "IREN": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "IVV": {
+      "source": "fund_override"
+    },
+    "IWM": {
+      "source": "fund_override"
+    },
+    "IWM   261120P00280000": {
+      "source": "description"
+    },
+    "JBHT": {
+      "source": "Nasdaq screener",
+      "industry": "Trucking Freight/Courier Services"
+    },
+    "JBSS": {
+      "source": "Nasdaq screener",
+      "industry": "Specialty Foods"
+    },
+    "JOBY": {
+      "source": "Nasdaq screener",
+      "industry": "Aerospace"
+    },
+    "JPM": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "KDK": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "KDKRW": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "KIE": {
+      "source": "fund_override"
+    },
+    "KKR": {
+      "source": "Nasdaq screener",
+      "industry": "Investment Managers"
+    },
+    "KRKNF": {
+      "source": "description"
+    },
+    "KRNY": {
+      "source": "Nasdaq screener",
+      "industry": "Savings Institutions"
+    },
+    "KRSP WS": {
+      "source": "description"
+    },
+    "KYIVW": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "LASR": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "LFST": {
+      "source": "Nasdaq screener",
+      "industry": "Medical/Nursing Services"
+    },
+    "LINC": {
+      "source": "Nasdaq screener",
+      "industry": "Other Consumer Services"
+    },
+    "LITE": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "LLY": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "LMB": {
+      "source": "Nasdaq screener",
+      "industry": "Engineering & Construction"
+    },
+    "LMRI": {
+      "source": "Nasdaq screener",
+      "industry": "Medical Specialities"
+    },
+    "LNC": {
+      "source": "Nasdaq screener",
+      "industry": "Life Insurance"
+    },
+    "LNG": {
+      "source": "Nasdaq screener",
+      "industry": "Oil/Gas Transmission"
+    },
+    "MA": {
+      "source": "Nasdaq screener",
+      "industry": "Business Services"
+    },
+    "MACIW": {
+      "source": "Nasdaq screener",
+      "industry": "Blank Checks"
+    },
+    "MAXX": {
+      "source": "description"
+    },
+    "MAZE": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Biological Products (No Diagnostic Substances)"
+    },
+    "MBX": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "MCGAW": {
+      "source": "description"
+    },
+    "MCK": {
+      "source": "Nasdaq screener",
+      "industry": "Other Pharmaceuticals"
+    },
+    "MCY": {
+      "source": "Nasdaq screener",
+      "industry": "Property-Casualty Insurers"
+    },
+    "MEI": {
+      "source": "Nasdaq screener",
+      "industry": "Electrical Products"
+    },
+    "META": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "MIR": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "MP": {
+      "source": "Nasdaq screener",
+      "industry": "Metal Mining"
+    },
+    "MPWR": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "MRNA": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Biological Products (No Diagnostic Substances)"
+    },
+    "MSFT": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "MTDR": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "MTRN": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Specialties"
+    },
+    "MU": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "MVST": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "MXL": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "NAVN": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "NB": {
+      "source": "Nasdaq screener",
+      "industry": "Metal Mining"
+    },
+    "NBIS": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "NBR": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "NESR": {
+      "source": "Nasdaq screener",
+      "industry": "Oilfield Services/Equipment"
+    },
+    "NFLX": {
+      "source": "Nasdaq screener",
+      "industry": "Consumer Electronics/Video Chains"
+    },
+    "NRDS": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "NTNX": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "NUTX": {
+      "source": "Nasdaq screener",
+      "industry": "Business Services"
+    },
+    "NVCT": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "NVDA": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "NVO": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "NXATW": {
+      "source": "description"
+    },
+    "ODFL": {
+      "source": "Nasdaq screener",
+      "industry": "Trucking Freight/Courier Services"
+    },
+    "ONDS": {
+      "source": "Nasdaq screener",
+      "industry": "Radio And Television Broadcasting And Communications Equipment"
+    },
+    "OOMA": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "PACK": {
+      "source": "Nasdaq screener",
+      "industry": "Containers/Packaging"
+    },
+    "PANW": {
+      "source": "Nasdaq screener",
+      "industry": "Computer peripheral equipment"
+    },
+    "PAR": {
+      "source": "Nasdaq screener",
+      "industry": "Office Equipment/Supplies/Services"
+    },
+    "PARR": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "PAYS": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "PBF": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "PBR": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "PFSI": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "PHYS": {
+      "source": "fund_override"
+    },
+    "PKOH": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Specialties"
+    },
+    "PLTR": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "PRCT": {
+      "source": "Nasdaq screener",
+      "industry": "Medical/Dental Instruments"
+    },
+    "PRM": {
+      "source": "Nasdaq screener",
+      "industry": "Major Chemicals"
+    },
+    "PSIX": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "PSQL": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "PSQLW": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "PSX": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "PTEN": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "PTRN": {
+      "source": "Nasdaq screener",
+      "industry": "Catalog/Specialty Distribution"
+    },
+    "PUBM": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "Q": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "QDEL": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: In Vitro & In Vivo Diagnostic Substances"
+    },
+    "QQQ": {
+      "source": "fund_override"
+    },
+    "REI": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "REZI": {
+      "source": "Nasdaq screener",
+      "industry": "Wholesale Distributors"
+    },
+    "RH": {
+      "source": "Nasdaq screener",
+      "industry": "Other Specialty Stores"
+    },
+    "RIGD": {
+      "source": "description"
+    },
+    "RKLB": {
+      "source": "Nasdaq screener",
+      "industry": "Military/Government/Technical"
+    },
+    "RWEOY": {
+      "source": "description"
+    },
+    "RXT": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "SD": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "SERV": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "SHY": {
+      "source": "fund_override"
+    },
+    "SLDE": {
+      "source": "Nasdaq screener",
+      "industry": "Property-Casualty Insurers"
+    },
+    "SLS": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "SLV": {
+      "source": "fund_override"
+    },
+    "SM": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "SMPL": {
+      "source": "Nasdaq screener",
+      "industry": "Packaged Foods"
+    },
+    "SNDK": {
+      "source": "Nasdaq screener",
+      "industry": "Electronic Components"
+    },
+    "SPCX": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "SPGI": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "SPHR": {
+      "source": "Nasdaq screener",
+      "industry": "Services-Misc. Amusement & Recreation"
+    },
+    "SPNS": {
+      "source": "description"
+    },
+    "STNE": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "SVIAW": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "TCBI": {
+      "source": "description"
+    },
+    "TFC": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "TH": {
+      "source": "Nasdaq screener",
+      "industry": "Hotels/Resorts"
+    },
+    "TLT": {
+      "source": "fund_override"
+    },
+    "TLT   270416C00080000": {
+      "source": "description"
+    },
+    "TMSWW": {
+      "source": "description"
+    },
+    "TNGX": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "TNK": {
+      "source": "Nasdaq screener",
+      "industry": "Marine Transportation"
+    },
+    "TOWN": {
+      "source": "Nasdaq screener",
+      "industry": "Major Banks"
+    },
+    "TPL": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
+    "TR": {
+      "source": "Nasdaq screener",
+      "industry": "Specialty Foods"
+    },
+    "TRGP": {
+      "source": "Nasdaq screener",
+      "industry": "Natural Gas Distribution"
+    },
+    "TSM": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "TSSI": {
+      "source": "Nasdaq screener",
+      "industry": "Professional Services"
+    },
+    "TT": {
+      "source": "Nasdaq screener",
+      "industry": "Auto Parts:O.E.M."
+    },
+    "TTD": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Programming Data Processing"
+    },
+    "TTMI": {
+      "source": "Nasdaq screener",
+      "industry": "Electrical Products"
+    },
+    "TTWO": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "UBER": {
+      "source": "Nasdaq screener",
+      "industry": "Business Services"
+    },
+    "UCTT": {
+      "source": "Nasdaq screener",
+      "industry": "Semiconductors"
+    },
+    "UE": {
+      "source": "Nasdaq screener",
+      "industry": "Real Estate"
+    },
+    "UMAC": {
+      "source": "Nasdaq screener",
+      "industry": "Radio And Television Broadcasting And Communications Equipment"
+    },
+    "UNFI": {
+      "source": "Nasdaq screener",
+      "industry": "Food Distributors"
+    },
+    "UNH": {
+      "source": "Nasdaq screener",
+      "industry": "Medical Specialities"
+    },
+    "UPB": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "UPWK": {
+      "source": "Nasdaq screener",
+      "industry": "EDP Services"
+    },
+    "URGN": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "UTI": {
+      "source": "Nasdaq screener",
+      "industry": "Other Consumer Services"
+    },
+    "UUUU": {
+      "source": "Nasdaq screener",
+      "industry": "Mining & Quarrying of Nonmetallic Minerals (No Fuels)"
+    },
+    "UVE": {
+      "source": "Nasdaq screener",
+      "industry": "Property-Casualty Insurers"
+    },
+    "VERX": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "VG": {
+      "source": "Nasdaq screener",
+      "industry": "Oil/Gas Transmission"
+    },
+    "VIA": {
+      "source": "Nasdaq screener",
+      "industry": "Computer Software: Prepackaged Software"
+    },
+    "VICR": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "VISN": {
+      "source": "Nasdaq screener",
+      "industry": "Radio And Television Broadcasting And Communications Equipment"
+    },
+    "VLO": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "VLOSW": {
+      "source": "Nasdaq screener",
+      "industry": "Blank Checks"
+    },
+    "VOO": {
+      "source": "fund_override"
+    },
+    "VRRM": {
+      "source": "Nasdaq screener",
+      "industry": "Transportation Services"
+    },
+    "VRT": {
+      "source": "Nasdaq screener",
+      "industry": "Industrial Machinery/Components"
+    },
+    "VRXAW": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "VSAT": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "VST": {
+      "source": "Nasdaq screener",
+      "industry": "Electric Utilities: Central"
+    },
+    "VWSC": {
+      "source": "description"
+    },
+    "VZ": {
+      "source": "Nasdaq screener",
+      "industry": "Telecommunications Equipment"
+    },
+    "WCP": {
+      "source": "description"
+    },
+    "WEAT": {
+      "source": "description"
+    },
+    "WVE": {
+      "source": "Nasdaq screener",
+      "industry": "Biotechnology: Pharmaceutical Preparations"
+    },
+    "WYFI": {
+      "source": "Nasdaq screener",
+      "industry": "Finance: Consumer Services"
+    },
+    "XBI": {
+      "source": "fund_override"
+    },
+    "XLB": {
+      "source": "fund_override"
+    },
+    "XLC": {
+      "source": "fund_override"
+    },
+    "XLE": {
+      "source": "fund_override"
+    },
+    "XLF": {
+      "source": "fund_override"
+    },
+    "XLI": {
+      "source": "fund_override"
+    },
+    "XLK": {
+      "source": "fund_override"
+    },
+    "XLP": {
+      "source": "fund_override"
+    },
+    "XLRE": {
+      "source": "fund_override"
+    },
+    "XLU": {
+      "source": "fund_override"
+    },
+    "XLV": {
+      "source": "fund_override"
+    },
+    "XLY": {
+      "source": "fund_override"
+    },
+    "XOM": {
+      "source": "Nasdaq screener",
+      "industry": "Integrated oil Companies"
+    },
+    "XOP": {
+      "source": "fund_override"
+    },
+    "YELP": {
+      "source": "Nasdaq screener",
+      "industry": "Other Consumer Services"
+    },
+    "YSS": {
+      "source": "Nasdaq screener",
+      "industry": "Military/Government/Technical"
+    },
+    "ZSPC": {
+      "source": "description"
+    }
+  }
+}

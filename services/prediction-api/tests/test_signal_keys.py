@@ -14,6 +14,21 @@ spec.loader.exec_module(keys)
 
 
 class SignalKeysTest(unittest.TestCase):
+    def test_admin_create_and_revoke_use_admin_registry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(keys, 'REMOTE_ROOT', directory), patch.dict(os.environ, {}, clear=True), \
+                    patch('builtins.input', side_effect=['admin','1','enoch']), \
+                    patch('sys.stdout', new_callable=io.StringIO):
+                keys.main(['create'])
+            path = Path(directory)/'admins.htpasswd'
+            self.assertTrue(path.read_text().startswith('enoch:{SHA}'))
+            self.assertFalse((Path(directory)/'senders.htpasswd').exists())
+            with patch.object(keys, 'REMOTE_ROOT', directory), patch.dict(os.environ, {}, clear=True), \
+                    patch('builtins.input', side_effect=['admin','1','enoch']), \
+                    patch('sys.stdout', new_callable=io.StringIO):
+                keys.main(['revoke'])
+            self.assertEqual(path.read_text(), '')
+
     def setUp(self):
         self.installed = ""
 

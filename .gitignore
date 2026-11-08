@@ -50,3 +50,6 @@ prediction-api/logs
 
 # Paper trading secret MOVE THIS
 prediction-api/paper-secrets.conf
+
+# Real IBKR account numbers: kept on the server only
+services/flex-web-live/ui/account-names.json

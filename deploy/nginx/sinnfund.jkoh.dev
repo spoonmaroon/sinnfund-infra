@@ -1,11 +1,10 @@
 server {
     server_name sinnfund.jkoh.dev;
 
-    # Landing page
+    # Home page is the portfolio dashboard.
     location = / {
-	    root /var/www/sinnfund;
-	    try_files /index.html =404;
-	}
+        return 302 /live/;
+    }
 
     # Previous-day-close dashboard
     location = /close {
@@ -35,6 +34,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+
+     # Variability dashboard
+	location = /var { return 301 /var/; }
+	location ^~ /var/ {
+	    proxy_pass http://127.0.0.1:8093/;
+	    proxy_set_header Host $host;
+	    proxy_set_header X-Forwarded-Proto $scheme;
+	    proxy_set_header X-Real-IP $remote_addr;
+	}
 
     # Prediction apis
     location = /prediction {
