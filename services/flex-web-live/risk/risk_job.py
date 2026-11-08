@@ -50,7 +50,8 @@ def number(value) -> float:
 
 
 def key(symbol) -> str:
-    """One ticker spelling everywhere: IBKR's "BRK B" is LSEG's and the feed's "BRK.B"."""
+    """IBKR's "BRK B" is LSEG's and the feed's "BRK.B" (same rule as whatif.ticker; this venv
+    cannot import the web service)."""
     return str(symbol or "").strip().upper().replace(" ", ".")
 
 

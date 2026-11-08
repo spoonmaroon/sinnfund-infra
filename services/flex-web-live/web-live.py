@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, read_flows, read_trades, reprice
-from whatif import what_if
+from whatif import ticker, what_if
 from portfolio_api import (
     ReportCache,
     add_day_change,
@@ -341,7 +341,7 @@ def risk_whatif(basket: Basket):
     data = load_scenarios()
     if data is None:
         return JSONResponse({"detail": "The daily risk job has not written scenario data yet."}, status_code=503)
-    sectors = {s.replace(" ", "."): v for s, v in json.loads(SECTORS_FILE.read_text()).get("sectors", {}).items()}
+    sectors = {ticker(s): v for s, v in json.loads(SECTORS_FILE.read_text()).get("sectors", {}).items()}
     try:
         return what_if(data, sectors, [trade.model_dump() for trade in basket.trades])
     except ValueError as error:

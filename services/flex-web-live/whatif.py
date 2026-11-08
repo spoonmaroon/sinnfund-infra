@@ -62,6 +62,21 @@ def gross_by_sector(book: dict[str, float], sectors: dict[str, str]) -> dict[str
 MAX_TRADES = 500
 
 
+def ticker(symbol) -> str:
+    """One spelling everywhere: IBKR's "BRK B" is LSEG's and the risk data's "BRK.B"."""
+    return str(symbol or "").strip().upper().replace(" ", ".")
+
+
+def reject_reason(symbol: str, quantity: float, account: str, data: dict) -> str:
+    if not math.isfinite(quantity) or not quantity:
+        return "quantity must be a non-zero number"
+    if symbol not in data["returns"]:
+        return "not in the risk model: no or under 250 days of LSEG price history, or an option/warrant"
+    if account and account not in data["nlv"]:
+        return f"unknown account {account}"
+    return ""
+
+
 def tail_days(pnl: list[float]) -> list[int]:
     """The worst 2.5% of days, used to split expected shortfall across trades."""
     return sorted(range(len(pnl)), key=pnl.__getitem__)[:math.ceil(0.025 * len(pnl))]
@@ -75,16 +90,13 @@ def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
     market = returns.get(data.get("market", ""))
     accepted, rejected = [], []
     for row, trade in enumerate(trades[:MAX_TRADES], start=1):
-        symbol = str(trade.get("symbol", "")).strip().upper().replace(" ", ".")  # "BRK B" -> "BRK.B", as in the risk data
+        symbol = ticker(trade.get("symbol"))
         account = str(trade.get("account") or "").strip()
         try:
             quantity = float(trade.get("quantity"))
         except (TypeError, ValueError):
             quantity = 0.0
-        reason = ("quantity must be a non-zero number" if not math.isfinite(quantity) or not quantity
-                  else "not in the risk model: no or under 250 days of LSEG price history, or an option/warrant"
-                  if symbol not in returns else f"unknown account {account}" if account and account not in nlv
-                  else "")
+        reason = reject_reason(symbol, quantity, account, data)
         if reason:
             rejected.append({"row": row, "symbol": symbol, "reason": reason})
             continue
