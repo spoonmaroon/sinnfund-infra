@@ -1,7 +1,7 @@
 # ADR-0030: Backfill risk price history with an operator's LSEG login until the server's history service works
 
 - **Date:** 2026-11-08
-- **Status:** Accepted — interim
+- **Status:** Partly superseded 2026-11-08 — the risk job reads the LSEG history service (8092) first; `prices.csv` remains only for listings the service does not carry
 
 ## Context
 

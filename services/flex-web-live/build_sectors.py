@@ -26,6 +26,8 @@ ETF_SECTORS = {
     "BIL": "Fixed Income", "HYG": "Fixed Income", "VOO": "Diversified Funds",
     "IVV": "Diversified Funds", "QQQ": "Diversified Funds",
     "IWM": "Diversified Funds",
+    # Share classes the screener lists under another spelling.
+    "BRK B": "Financials", "BRK.B": "Financials", "BF.B": "Consumer Staples",
 }
 
 def fetch(url):
@@ -87,12 +89,17 @@ def underlying(row):
 
 
 def main():
-    # Pass a saved /api/v1/report response: python3 build_sectors.py report.json
+    # Pass a saved /api/v1/report response, and optionally the history service's universe.env
+    # so What if trades in names the fund does not hold get a sector too:
+    #   python3 build_sectors.py report.json [universe.env]
     report = json.loads(Path(sys.argv[1]).read_text())
     rows = report["positions"]
     symbols = {(row.get("symbol") or "").upper() for row in rows if row.get("symbol")}
     # Options and warrants take their underlying's sector; the description starts with its ticker.
     symbols |= {underlying(row) for row in rows if row.get("asset_category") in ("OPT", "WAR") and underlying(row)}
+    if len(sys.argv) > 2:
+        line = next(l for l in Path(sys.argv[2]).read_text().splitlines() if l.startswith("LSEG_HISTORY_EXTRA="))
+        symbols |= {entry.split("=")[0].upper() for entry in line.split("=", 1)[1].split(",") if "=" in entry}
     symbols = sorted(symbols)
     screener = fetch(
         "https://api.nasdaq.com/api/screener/stocks"
@@ -126,7 +133,8 @@ def main():
             metadata[symbol] = {"source": "fund_override"}
             continue
         lookup = symbol.replace(" ", "-")
-        item = by_ticker.get(lookup) or by_ticker.get(symbol)
+        # The screener writes share classes as BRK/B; IBKR uses "BRK B", LSEG "BRK.B".
+        item = by_ticker.get(lookup) or by_ticker.get(symbol) or by_ticker.get(symbol.replace(" ", "/").replace(".", "/"))
         if item and item.get("sector"):
             mapping[symbol] = names.get(item["sector"], item["sector"])
             metadata[symbol] = {

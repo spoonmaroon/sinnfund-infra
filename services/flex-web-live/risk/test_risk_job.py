@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
-from risk_job import build_report, scenario_data  # noqa: E402
+from risk_job import build_report, key, scenario_data  # noqa: E402
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from whatif import what_if  # noqa: E402
 
@@ -91,6 +91,10 @@ class RiskJobTests(unittest.TestCase):
         self.assertEqual(data["exposure"]["U2"], {"BBB": -1000.0})  # -5,000 + ¥400,000 at 0.01
         self.assertEqual(data["fx_to_usd"], {"BBB": 0.01})
 
+
+    def test_one_ticker_spelling_for_ibkr_lseg_and_the_what_if(self):
+        self.assertEqual(key(" brk b "), "BRK.B")
+        self.assertEqual(key("AAPL"), "AAPL")
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,7 +7,7 @@ VaR/ES and per-position risk contributions use Riskfolio-Lib.
 
 Runs in /opt/flex-web-live/risk-venv (numpy, pandas, riskfolio-lib):
     risk-venv/bin/python risk/risk_job.py
-Reads positions/cash from the portfolio API and closes from risk/prices.csv;
+Reads positions/cash from the portfolio API and closes from the LSEG history service (8092), with risk/prices.csv for listings it lacks;
 writes risk/latest.json, which /api/v1/risk serves.
 """
 from __future__ import annotations
@@ -20,6 +20,7 @@ import tempfile
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 from urllib.request import urlopen
 
 import numpy as np
@@ -28,8 +29,9 @@ import riskfolio as rp
 
 HERE = Path(__file__).resolve().parent
 REPORT_URL = os.environ.get("PORTFOLIO_REPORT_URL", "http://127.0.0.1:8002/api/v1/report")
-# shortcut: closes come from a one-off backfill with a personal LSEG login; read
-# lseg-history-api (127.0.0.1:8092) instead once the server's history refresh works.
+# Daily closes: the LSEG history service (holdings + S&P 500, refreshed Tue-Sat), plus the
+# operator backfill for listings the service does not carry (mostly foreign; ADR-0030).
+HISTORY_URL = os.environ.get("LSEG_HISTORY_URL", "http://127.0.0.1:8092")
 PRICES = Path(os.environ.get("RISK_PRICES", HERE / "prices.csv"))
 SECTORS = HERE.parent / "sectors.json"
 OUT = HERE / "latest.json"
@@ -45,6 +47,27 @@ def number(value) -> float:
     except (TypeError, ValueError):
         return 0.0
     return result if math.isfinite(result) else 0.0
+
+
+def key(symbol) -> str:
+    """One ticker spelling everywhere: IBKR's "BRK B" is LSEG's and the feed's "BRK.B"."""
+    return str(symbol or "").strip().upper().replace(" ", ".")
+
+
+def load_prices() -> pd.DataFrame:
+    """date, symbol, close for every symbol the history service holds, then backfill-only ones."""
+    with urlopen(f"{HISTORY_URL}/symbols", timeout=30) as response:
+        symbols = [s["symbol"] for s in json.load(response) if s.get("bars")]
+    rows = []
+    for symbol in symbols:
+        with urlopen(f"{HISTORY_URL}/history/{quote(symbol)}?limit={WINDOW + 60}", timeout=30) as response:
+            rows += [(p["date"], key(symbol), p["close"]) for p in json.load(response)["prices"]]
+    prices = pd.DataFrame(rows, columns=["date", "symbol", "close"])
+    if PRICES.is_file():
+        backfill = pd.read_csv(PRICES, dtype={"symbol": str})
+        backfill["symbol"] = backfill["symbol"].map(key)
+        prices = pd.concat([prices, backfill[~backfill["symbol"].isin(set(prices["symbol"]))]])
+    return prices
 
 
 def usd_value(row: dict) -> float:
@@ -96,7 +119,7 @@ def holdings(report: dict, returns: pd.DataFrame, short: dict) -> tuple[dict, di
     exposure: dict[tuple[str, str], float] = defaultdict(float)
     excluded = []
     for row in report.get("positions", []):
-        account, symbol, value = row.get("account_id", ""), str(row.get("symbol", "")).upper(), usd_value(row)
+        account, symbol, value = row.get("account_id", ""), key(row.get("symbol")), usd_value(row)
         nlv[account] += value
         if row.get("asset_category") != "STK":
             reason = "options/warrants are not modelled yet"
@@ -107,7 +130,7 @@ def holdings(report: dict, returns: pd.DataFrame, short: dict) -> tuple[dict, di
         else:
             exposure[(account, symbol)] += value
             continue
-        excluded.append({"account": account, "symbol": symbol, "value": round(value, 2), "reason": reason})
+        excluded.append({"account": account, "symbol": str(row.get("symbol", "")).upper(), "value": round(value, 2), "reason": reason})
     return exposure, nlv, excluded
 
 
@@ -179,7 +202,7 @@ def scenario_data(report: dict, prices: pd.DataFrame) -> dict:
         book[account][symbol] = round(value, 2)
     last = prices.sort_values("date").groupby("symbol")["close"].last()
     # Closes are in the listing's currency; IBKR's rate for held symbols turns a trade into USD.
-    fx = {str(r.get("symbol", "")).upper(): number(r.get("fx_rate_to_base"))
+    fx = {key(r.get("symbol")): number(r.get("fx_rate_to_base"))
           for r in report.get("positions", []) if number(r.get("fx_rate_to_base")) not in (0.0, 1.0)}
     return {
         "as_of": report.get("date"), "market": MARKET, "dates": [str(d) for d in returns.index],
@@ -200,8 +223,8 @@ def write_json(path: Path, data: dict) -> None:
 def main() -> int:
     with urlopen(REPORT_URL, timeout=60) as response:
         report = json.load(response)
-    prices = pd.read_csv(PRICES, dtype={"symbol": str})
-    sectors = json.loads(SECTORS.read_text()).get("sectors", {}) if SECTORS.is_file() else {}
+    prices = load_prices()
+    sectors = {key(s): v for s, v in (json.loads(SECTORS.read_text()).get("sectors", {}) if SECTORS.is_file() else {}).items()}
     result = build_report(report, prices, sectors)
     write_json(SCENARIOS, scenario_data(report, prices))
     write_json(OUT, result)

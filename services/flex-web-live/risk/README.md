@@ -62,9 +62,11 @@ trades.
   formulas, so "before" matches the report (checked in `test_risk_job.py`).
 - `POST /api/v1/risk/whatif` with `{"trades": [{"symbol", "quantity", "account"}]}`
   is read-only; nothing is stored.
-- **Limits:** only symbols in the risk data can be modelled, which today means
-  names the fund already holds (with 250+ days of history) plus IVV, so a new
-  name such as AAPL is refused until its history is added. Trades are priced at
+- **Universe:** the fund's holdings plus the S&P 500 (762 symbols with 250+ days
+  of history), so new names such as AAPL can be tested. The S&P list comes from
+  `deploy/risk-pipeline/add-sp500-history.sh`; sectors for it from
+  `build_sectors.py <report.json> /opt/lseg-history/universe.env`.
+- **Limits:** names outside that universe are refused with a reason. Trades are priced at
   the last LSEG close (foreign listings converted with IBKR's rate). The data is
   as fresh as the last risk job run. Options, warrants, liquidity and factor
   exposure are not covered yet.
@@ -95,6 +97,12 @@ the 11:00 Flex download and after the US close):
 
 ## Price history
 
+Since 2026-11-08 the job reads the **LSEG history service** on `127.0.0.1:8092`
+(holdings + S&P 500, about 3 years, refreshed Tue-Sat 06:30 ET) and adds
+`prices.csv` only for symbols the service lacks (mostly foreign listings): 777
+symbols in all.
+
+The operator backfill below (ADR-0030) is now the fallback for those listings.
 Interim (ADR-0030): an operator's own LSEG cloud login, run on their machine.
 Close Refinitiv Workspace first if it uses the same login (one session per login).
 

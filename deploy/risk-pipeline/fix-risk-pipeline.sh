@@ -63,10 +63,12 @@ echo "== 5. Option prices: add the fund's listed options to the delayed LSEG fee
 # Key = OCC symbol without spaces (what flex-web-live looks up); value = delayed OPRA RIC:
 # root + month code (calls A-L, puts M-X) + day + yy + strike x100 (5 digits) + .U.
 # BRK.B: IBKR's "BRK B" (keys cannot hold a space; flex-web-live looks it up with a dot).
+# Foreign listings the Flex resolver skips (verified 2026-11-08). Not BABl: LSE quotes are in
+# pence while IBKR reports pounds, so the price-ratio check would reject it anyway.
 # shortcut: fixed list of the 5 options held on 2026-11-06; IWM expires 2026-11-20. Remove expired
 # entries by hand until the feed's Flex resolver (LSEG_AUTO_RESOLVE_FLEX) learns options.
 FEED_ENV=/opt/lseg-feed/lseg-symbols.env
-OPTIONS="BRK.B=/BRKb,IWM261120P00280000=/IWMW202628000.U,GLD270115P00370000=/GLDM152737000.U,GLD270115C00410000=/GLDA152741000.U,CCL270115P00020000=/CCLM152702000.U,TLT270416C00080000=/TLTD162708000.U"
+OPTIONS="BRK.B=/BRKb,VWSC=/VWS.CO,WCP=/WCP.TO,ATZ=/ATZ.TO,ARA=/ARA.TO,D05=/DBSM.SI,IWM261120P00280000=/IWMW202628000.U,GLD270115P00370000=/GLDM152737000.U,GLD270115C00410000=/GLDA152741000.U,CCL270115P00020000=/CCLM152702000.U,TLT270416C00080000=/TLTD162708000.U"
 KEYS=$(tr ',' '\n' <<<"$OPTIONS" | cut -d= -f1 | paste -sd,)
 if grep -q BRK.B= "$FEED_ENV"; then
   echo "(options already in $FEED_ENV)"

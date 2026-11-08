@@ -75,7 +75,7 @@ def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
     market = returns.get(data.get("market", ""))
     accepted, rejected = [], []
     for row, trade in enumerate(trades[:MAX_TRADES], start=1):
-        symbol = str(trade.get("symbol", "")).strip().upper()
+        symbol = str(trade.get("symbol", "")).strip().upper().replace(" ", ".")  # "BRK B" -> "BRK.B", as in the risk data
         account = str(trade.get("account") or "").strip()
         try:
             quantity = float(trade.get("quantity"))

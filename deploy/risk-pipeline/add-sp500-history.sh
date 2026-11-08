@@ -28,6 +28,21 @@ assert text.count(old_spec) == 1 and text.count(old_dup) == 1, "history_api.py c
 open(path, "w").write(text.replace(old_spec, new_spec).replace(old_dup, new_dup))
 EOF
 fi
+# history_api.py opened a SQLite connection per request and never closed it ("with
+# connect()" only commits), so ~1,000 requests exhausted file handles (Errno 24).
+if ! grep -q "from contextlib import closing" "$HIST"; then
+  cp -a "$HIST" "$HIST.bak-$(date -u +%Y%m%dT%H%M%SZ)"
+  python3 - "$HIST" <<'EOF'
+import sys
+path = sys.argv[1]
+text = open(path).read()
+assert "with connect() as db:" in text and "import argparse\n" in text, "history_api.py changed; patch by hand"
+text = text.replace("import argparse\n", "import argparse\nfrom contextlib import closing\n", 1)
+text = text.replace("with connect() as db:", "with closing(connect()) as db:").replace("with connect():", "with closing(connect()):")
+open(path, "w").write(text)
+EOF
+  systemctl restart lseg-history-api.service
+fi
 mkdir -p /etc/systemd/system/lseg-history-refresh.service.d
 printf '[Service]\nEnvironmentFile=-%s\n' "$UNIVERSE" > /etc/systemd/system/lseg-history-refresh.service.d/universe.conf
 systemctl daemon-reload

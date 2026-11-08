@@ -341,7 +341,7 @@ def risk_whatif(basket: Basket):
     data = load_scenarios()
     if data is None:
         return JSONResponse({"detail": "The daily risk job has not written scenario data yet."}, status_code=503)
-    sectors = json.loads(SECTORS_FILE.read_text()).get("sectors", {})
+    sectors = {s.replace(" ", "."): v for s, v in json.loads(SECTORS_FILE.read_text()).get("sectors", {}).items()}
     try:
         return what_if(data, sectors, [trade.model_dump() for trade in basket.trades])
     except ValueError as error:
