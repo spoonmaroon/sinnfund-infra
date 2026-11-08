@@ -3,7 +3,7 @@
 - **Event period:** Statement generated 2026-11-06 23:15 (IBKR `whenGenerated`); found 2026-11-08
 - **Reported / detected:** Dashboard audit; position count fell from 403 to 310
 - **Category:** Correctness / source-data completeness
-- **Status:** Mitigated (dashboard carry-forward); resolution pending the 2026-11-10 ingest retry
+- **Status:** Resolved 2026-11-08 — complete statement re-downloaded
 - **Severity / audience impact:** High — headline value showed about $1.87M instead of about $4.6M; risk would have omitted the largest account
 - **Evidence level:** Raw archive and logs
 - **Owner:** Portfolio dashboard maintainers
@@ -22,7 +22,8 @@ Each daily archive should contain a statement for every account. The 2026-11-06 
 - 2026-11-08: deployed the ingest fix (commit `4a647a9`; backup in `/opt/flex-ingest/deploy-backups/partial-retry-*`): partial statements are saved as `.xml.gz.partial` and recent partial days are retried each run. A run was **not** triggered on Sunday, because it would have requested Saturday.
 
 ## Prevention / follow-ups
-- [ ] Confirm the 2026-11-10 11:00 UTC run replaces the 2026-11-06 partial with a complete statement.
+- [x] 2026-11-08 ~19:29 UTC: re-downloaded with `flex-ingest.py --date 20261106` as `svc-flex`: 25 statements, no exclusion message; the old file is kept as `main.xml.gz.partial`. The first attempt failed with "Permission denied" because the 2026-11-06 folder was owned by `enoch` (created by a manual run on 2026-11-07); it was chowned to `svc-flex`. Manual runs must use the service user (`sudo -u svc-flex …`), or the timer's retries fail the same way.
+- [ ] Confirm the 2026-11-10 11:00 UTC timer run archives 2026-11-09 normally.
 - [ ] Merge branch `claude/serene-tesla-3decfb` (ingest fix) into `main`.
 
 ## Links
