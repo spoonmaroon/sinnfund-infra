@@ -258,7 +258,9 @@ def refresh_flex_symbols(store: PriceStore):
     mapping, unresolved = flex_to_lseg_symbols(positions)
     # LSEG_SYMBOLS adds what the resolver skips (options, manual RIC overrides) and keeps
     # holdings of accounts IBKR left out of a partial statement; resolved RICs win on overlap.
-    mapping = {**parse_symbols(os.environ.get("LSEG_SYMBOLS", "")), **mapping} if os.environ.get("LSEG_SYMBOLS") else mapping
+    configured = os.environ.get("LSEG_SYMBOLS")
+    if configured:
+        mapping = {**parse_symbols(configured), **mapping}
     store.replace_symbols(mapping)
     LOG.info("Resolved %d LSEG symbols from Flex (%d unresolved)",
              len(mapping), len(unresolved))
