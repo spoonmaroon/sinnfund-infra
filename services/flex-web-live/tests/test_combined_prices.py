@@ -77,10 +77,10 @@ class OptionPriceTests(unittest.TestCase):
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"snapshot_age_seconds": 10, "connected": True, "quotes": {
-            "IWM261120P00280000": {"price": 11, "ric": "/IWMW202628000.U"},
+            "IWM261120P00280000": {"price": 9, "mid": 11, "ric": "/IWMW202628000.U"},  # stale last trade
             "FTW WS": {"price": 2}}}
         with patch("parse_flex_positions_live.requests.get", return_value=response):
             reprice([option, warrant], [])
-        self.assertEqual(option["market_value"], "22000.00000000")  # 20 contracts x 100 x $11
+        self.assertEqual(option["market_value"], "22000.00000000")  # 20 contracts x 100 x $11 midpoint
         self.assertEqual(option["quote_ric"], "/IWMW202628000.U")
         self.assertEqual(warrant["price_validation"], "close_only")

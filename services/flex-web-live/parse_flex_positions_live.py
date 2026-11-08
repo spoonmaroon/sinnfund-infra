@@ -296,7 +296,9 @@ def reprice(positions: list[dict], lots: list[dict]) -> None:
             continue
 
         try:
-            price = Decimal(str(quote["price"]))
+            # Options trade rarely, so their last trade can be days old: use the bid/ask midpoint.
+            option_mid = quote.get("mid") if row["asset_category"] == "OPT" else None
+            price = Decimal(str(option_mid or quote["price"]))
             old_mark = Decimal(row["mark_price"])
             old_value = Decimal(row["market_value"])
             old_pnl = Decimal(row["unrealized_pnl"])
