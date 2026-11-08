@@ -82,11 +82,18 @@ def fallback(row):
         return "Energy"
     return "Unclassified"
 
+def underlying(row):
+    return ((row.get("description") or "").split() or [""])[0].upper()
+
+
 def main():
     # Pass a saved /api/v1/report response: python3 build_sectors.py report.json
     report = json.loads(Path(sys.argv[1]).read_text())
     rows = report["positions"]
-    symbols = sorted({(row.get("symbol") or "").upper() for row in rows if row.get("symbol")})
+    symbols = {(row.get("symbol") or "").upper() for row in rows if row.get("symbol")}
+    # Options and warrants take their underlying's sector; the description starts with its ticker.
+    symbols |= {underlying(row) for row in rows if row.get("asset_category") in ("OPT", "WAR") and underlying(row)}
+    symbols = sorted(symbols)
     screener = fetch(
         "https://api.nasdaq.com/api/screener/stocks"
         "?tableonly=true&limit=25&offset=0&download=true"
@@ -113,7 +120,7 @@ def main():
     }
     mapping, metadata = {}, {}
     for symbol in symbols:
-        row = next(item for item in rows if (item.get("symbol") or "").upper() == symbol)
+        row = next((item for item in rows if (item.get("symbol") or "").upper() == symbol), {"symbol": symbol})
         if symbol in ETF_SECTORS:
             mapping[symbol] = ETF_SECTORS[symbol]
             metadata[symbol] = {"source": "fund_override"}

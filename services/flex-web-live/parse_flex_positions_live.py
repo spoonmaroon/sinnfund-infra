@@ -142,6 +142,38 @@ def read_archives(files: list[Path]) -> tuple[list[dict], list[dict], dict[str, 
     return positions, lots, accounts
 
 
+TRADE_FIELDS = {
+    "account_id": "accountId",
+    "trade_date": "tradeDate",
+    "date_time": "dateTime",
+    "symbol": "symbol",
+    "description": "description",
+    "asset_category": "assetCategory",
+    "buy_sell": "buySell",
+    "quantity": "quantity",
+    "trade_price": "tradePrice",
+    "currency": "currency",
+    "fx_rate_to_base": "fxRateToBase",
+    "proceeds": "proceeds",
+    "commission": "ibCommission",
+    "realized_pnl": "fifoPnlRealized",
+    "open_close": "openCloseIndicator",
+    "transaction_id": "transactionID",
+}
+
+
+def read_trades(files: list[Path]) -> list[dict]:
+    """Executions (<Trade levelOfDetail="EXECUTION">) from Flex archives; values stay strings."""
+    trades = []
+    for path in files:
+        with gzip.open(path, "rb") as stream:
+            root = ET.parse(stream).getroot()
+        for element in root.iter("Trade"):
+            if element.get("levelOfDetail", "EXECUTION") == "EXECUTION":
+                trades.append({name: element.get(attribute, "") for name, attribute in TRADE_FIELDS.items()})
+    return trades
+
+
 def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
     """Parse Flex archives and revalue positions/lots using one LSEG API call.
 

@@ -18,7 +18,7 @@ function fakeElement() {
   return new Proxy(el, { get: (t, k) => (k in t ? t[k] : () => fakeElement()) });
 }
 
-async function render(report, sectors = { sectors: {} }, history = { points: [] }, risk = { available: false, reason: "not run" }) {
+async function render(report, sectors = { sectors: {} }, history = { points: [] }, risk = { available: false, reason: "not run" }, trades) {
   const elements = new Map();
   const byId = (id) => elements.get(id) ?? elements.set(id, fakeElement()).get(id);
   const responses = {
@@ -28,6 +28,7 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
     "api/v1/prices/validation": { coverage_pct: 100 },
     "api/v1/history": history,
     "api/v1/risk": risk,
+    ...(trades && { "api/v1/trades": trades }),
     "static/account-names.json": { U9000001: "Lifeboat", U9000002: "Tier One Acct", U9000004: "Factor Investing - Short Interest", U9000005: "Quant" },
   };
   const context = {
@@ -249,4 +250,35 @@ test("risk tab says so when the report has not run", async () => {
   const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
   assert.equal($("riskAsOf").textContent, "Risk report not available");
   assert.equal($("var95").textContent, "");
+});
+
+test("options get their own group and the underlying's sector", async () => {
+  const option = position({ conid: "9", symbol: "IWM   261120P00280000", description: "IWM 20NOV26 280 P", asset_category: "OPT", multiplier: "100" });
+  const warrant = position({ conid: "8", symbol: "TMSWW", description: "TMSW 17APR30 11.5 C", asset_category: "WAR" });
+  const $ = await render({ date: "20261106", positions: [position({}), option, warrant], lots: [] },
+    { sectors: { AAA: "Energy", IWM: "Diversified Funds", TMSWW: "Unclassified", TMSW: "Information Technology" } });
+  $("groupBy").value = "asset";
+  $("groupBy").handlers.change();
+  assert.match($("rows").innerHTML, /Options<\/button>/);
+  const html = $("sectorList").innerHTML;
+  assert.match(html, /<strong>Diversified Funds<\/strong>/);
+  assert.match(html, /<strong>Information Technology<\/strong>/);
+  assert.doesNotMatch(html, /Unclassified/);
+});
+
+test("trade history stays hidden while the server keeps it off", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  assert.equal($("tradeList").innerHTML, ""); // the trades endpoint 404s, so nothing renders
+  const page = readFileSync(new URL("../ui/index.html", import.meta.url), "utf8");
+  assert.match(page, /id="tradeLog" hidden/);
+});
+
+test("trade history lists executions with names and USD values once enabled", async () => {
+  const trades = { trades: [
+    { trade_date: "20261105", account_id: "U9000005", buy_sell: "SELL", symbol: "GDX", quantity: "-100",
+      trade_price: "83.11", currency: "USD", fx_rate_to_base: "1", proceeds: "8311", realized_pnl: "3412.32" },
+  ] };
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined, trades);
+  assert.equal($("tradeLog").hidden, false);
+  assert.match($("tradeList").innerHTML, /<td>Quant<\/td><td>SELL<\/td><td>GDX<\/td><td class="num">-100<\/td><td class="num">\$83.11<\/td><td class="num"><span class="">8,311<\/span><\/td><td class="num"><span class="">3,412<\/span>/);
 });

@@ -17,6 +17,7 @@
     "AGNT": "Financials",
     "AKAM": "Consumer Discretionary",
     "ALCWF": "Unclassified",
+    "ALCYF": "Unclassified",
     "ALHC": "Health Care",
     "ALM": "Materials",
     "ALMS": "Health Care",
@@ -62,6 +63,7 @@
     "CANE": "Unclassified",
     "CBRS": "Information Technology",
     "CCB": "Financials",
+    "CCL": "Consumer Discretionary",
     "CCL   270115P00020000": "Unclassified",
     "CEG": "Utilities",
     "CGON": "Health Care",
@@ -116,6 +118,7 @@
     "FLY": "Industrials",
     "FRME": "Financials",
     "FSLY": "Information Technology",
+    "FTW": "Energy",
     "FTW WS": "Unclassified",
     "GDX": "Commodities",
     "GDXJ": "Commodities",
@@ -166,6 +169,7 @@
     "KKR": "Financials",
     "KRKNF": "Unclassified",
     "KRNY": "Financials",
+    "KRSP": "Unclassified",
     "KRSP WS": "Unclassified",
     "KYIVW": "Communication Services",
     "LASR": "Information Technology",
@@ -263,6 +267,7 @@
     "TH": "Consumer Discretionary",
     "TLT": "Fixed Income",
     "TLT   270416C00080000": "Unclassified",
+    "TMSW": "Unclassified",
     "TMSWW": "Unclassified",
     "TNGX": "Health Care",
     "TNK": "Consumer Discretionary",
@@ -382,6 +387,9 @@
       "industry": "Business Services"
     },
     "ALCWF": {
+      "source": "description"
+    },
+    "ALCYF": {
       "source": "description"
     },
     "ALHC": {
@@ -556,6 +564,10 @@
     "CCB": {
       "source": "Nasdaq screener",
       "industry": "Major Banks"
+    },
+    "CCL": {
+      "source": "Nasdaq screener",
+      "industry": "Marine Transportation"
     },
     "CCL   270115P00020000": {
       "source": "description"
@@ -769,6 +781,10 @@
       "source": "Nasdaq screener",
       "industry": "Computer Software: Prepackaged Software"
     },
+    "FTW": {
+      "source": "Nasdaq screener",
+      "industry": "Oil & Gas Production"
+    },
     "FTW WS": {
       "source": "description"
     },
@@ -954,6 +970,9 @@
     "KRNY": {
       "source": "Nasdaq screener",
       "industry": "Savings Institutions"
+    },
+    "KRSP": {
+      "source": "description"
     },
     "KRSP WS": {
       "source": "description"
@@ -1327,6 +1346,9 @@
       "source": "fund_override"
     },
     "TLT   270416C00080000": {
+      "source": "description"
+    },
+    "TMSW": {
       "source": "description"
     },
     "TMSWW": {

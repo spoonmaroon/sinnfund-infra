@@ -17,7 +17,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, reprice
+from parse_flex_positions_live import DEFAULT_ARCHIVE_DIR, latest_date, read_archives, read_trades, reprice
 from portfolio_api import (
     ReportCache,
     add_day_change,
@@ -33,6 +33,8 @@ HERE = Path(__file__).parent
 UI_DIR = HERE / "ui"
 SECTORS_FILE = HERE / "sectors.json"
 ARCHIVE_DIR = Path(os.environ.get("FLEX_ARCHIVE_DIR", str(DEFAULT_ARCHIVE_DIR)))
+# Trade history is built but hidden: /api/v1/trades is 404 until TRADE_LOG=1.
+TRADE_LOG = os.environ.get("TRADE_LOG") == "1"
 LSEG_HEALTH_URL = os.environ.get("LSEG_HEALTH_URL", "http://127.0.0.1:8091/health")
 
 
@@ -129,8 +131,16 @@ def shared_json(request: Request, name: str, source: dict, build) -> Response:
     return Response(cached[1], media_type="application/json")
 
 
+def load_trades() -> dict:
+    dates = sorted(p.name for p in ARCHIVE_DIR.iterdir() if p.is_dir() and re.fullmatch(r"\d{8}", p.name))
+    # A re-downloaded day can repeat executions; the transaction ID is unique per fill.
+    unique = {t["transaction_id"] or id(t): t for d in dates for t in read_trades(archive_files(d))}
+    return {"trades": sorted(unique.values(), key=lambda t: t["date_time"], reverse=True)}
+
+
 # Statements arrive once a day, so an hour-old parse is still current.
 history_cache = ReportCache(load_history, ttl_seconds=3600)
+trades_cache = ReportCache(load_trades, ttl_seconds=3600)
 app = FastAPI(
     title="Sinn Fund Portfolio API",
     version="1.0.0",
@@ -222,6 +232,13 @@ def sectors():
 @app.get("/api/v1/history")
 def history(request: Request):
     return shared_json(request, "history", history_cache.get(), lambda data: data)
+
+
+@app.get("/api/v1/trades")
+def trades(request: Request):
+    if not TRADE_LOG:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return shared_json(request, "trades", trades_cache.get(), lambda data: data)
 
 
 RISK_FILE = HERE / "risk" / "latest.json"

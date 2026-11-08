@@ -34,6 +34,7 @@ default order on the third.
 | `GET /api/v1/history` | `{"available": false}` until the Flex archive carries daily NAV totals |
 | `GET /api/v1/risk` | Latest risk report written by `risk/risk_job.py` |
 | `GET /api/v1/prices/validation` | Close-versus-delayed coverage and gap checks |
+| `GET /api/v1/trades` | Every execution in the archives, newest first. **Hidden:** 404 unless the service runs with `TRADE_LOG=1`; the page's Trade history card stays hidden until then. Not listed in `/api/v1`. |
 | `GET /healthz` | Archive availability |
 
 ## How the numbers are built
@@ -59,6 +60,10 @@ default order on the third.
   from the fund's account list; IBKR's `acctAlias` is empty). It is kept on the
   server and out of git because the repo is public. Without it the dashboard
   shows account numbers only.
+- **Options and warrants** are grouped as Options / Warrants and take their
+  underlying's sector (first word of the symbol: `IWM   261120P…` → IWM) when
+  they have none of their own. They are priced from the statement only: the LSEG
+  feed subscribes to stocks and ETFs, not option RICs.
 - **Sectors** come from `sectors.json`, rebuilt with
   `python3 build_sectors.py <saved /api/v1/report response>`.
 
@@ -83,7 +88,7 @@ and `price_validation`, and the legacy `mark_price`, `market_value` and
 ```bash
 # from services/flex-web-live, with the service venv
 PYTHONPATH=. python -m unittest tests/test_combined_prices.py tests/test_dashboard_routes.py \
-  tests/test_day_change.py tests/test_concurrency.py
+  tests/test_day_change.py tests/test_concurrency.py tests/test_position_changes.py
 node --test tests/            # dashboard rendering, no npm packages
 # risk job (needs the risk venv on the server)
 /opt/flex-web-live/risk-venv/bin/python -m unittest risk/test_risk_job.py
@@ -91,7 +96,9 @@ node --test tests/            # dashboard rendering, no npm packages
 
 `tests/dashboard.test.mjs` runs `ui/app.js` against fake API data with a minimal
 DOM stand-in and checks totals, FX, day change, accounts, sectors, sorting, the
-history gate and the risk tab.
+history gate, the risk tab, options grouping and the hidden trade history.
+`tests/test_position_changes.py` writes real Flex archive files, then buys, sells
+and resizes positions day by day and checks the API serves each change.
 
 ## Deploy
 
