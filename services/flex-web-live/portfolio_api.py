@@ -249,10 +249,14 @@ def price_validation_summary(report: dict) -> dict:
         for row in positions
         if int(number(row.get("psuedo-live updated")))
     )
+    gross = sum(abs(number(row.get("close_market_value")) * fx(row)) for row in positions)
+    gross_updated = sum(abs(number(row.get("close_market_value")) * fx(row)) for row in positions
+                        if int(number(row.get("psuedo-live updated"))))
     return {
         "as_of": report.get("date"),
         "quote_snapshot_at": report.get("lseg_last_snapshot_at"),
         "positions": len(positions),
+        "value_coverage_pct": round(float(gross_updated / gross * 100), 2) if gross else 0.0,
         "updated_positions": updated_positions,
         "updated_symbols": len(by_symbol),
         "coverage_pct": round(updated_positions / len(positions) * 100, 2)

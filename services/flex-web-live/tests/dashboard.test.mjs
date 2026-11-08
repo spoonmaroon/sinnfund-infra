@@ -27,7 +27,7 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
     "api/v1/portfolio": { totals: {}, allocation: [] },
     "api/v1/report": report,
     "api/v1/sectors": sectors,
-    "api/v1/prices/validation": { coverage_pct: 100 },
+    "api/v1/prices/validation": { coverage_pct: 100, value_coverage_pct: 100, updated_positions: 1, positions: 1 },
     "api/v1/history": history,
     "api/v1/risk": risk,
     ...extra,

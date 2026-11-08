@@ -59,6 +59,7 @@ class CombinedPriceTests(unittest.TestCase):
         self.assertEqual(summary["totals"]["close_position_value"], 200.0)
         self.assertEqual(summary["totals"]["position_value"], 220.0)
         self.assertEqual(validation["coverage_pct"], 100.0)
+        self.assertEqual(validation["value_coverage_pct"], 100.0)
         self.assertEqual(validation["absolute_price_gap_pct"]["max"], 10.0)
 
 
