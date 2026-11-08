@@ -31,6 +31,7 @@ FIELDS = {
     "description": "description",
     "asset_category": "assetCategory",
     "currency": "currency",
+    "fx_rate_to_base": "fxRateToBase",
     "side": "side",
     "quantity": "position",
     "multiplier": "multiplier",
@@ -52,10 +53,10 @@ LOT_FIELDS = {
 }
 
 
-def latest_date(archive_dir: Path) -> str:
+def latest_date(archive_dir: Path, before: str = "99999999") -> str:
     dates = [
         p.name for p in archive_dir.iterdir()
-        if p.is_dir() and re.fullmatch(r"\d{8}", p.name)
+        if p.is_dir() and re.fullmatch(r"\d{8}", p.name) and p.name < before
         and any(p.glob("*.xml.gz"))
     ]
     if not dates:
@@ -64,18 +65,15 @@ def latest_date(archive_dir: Path) -> str:
 
 
 
-def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
-    """Parse Flex archives and revalue positions/lots using one LSEG API call.
+def read_archives(files: list[Path]) -> tuple[list[dict], list[dict], dict[str, str]]:
+    """Parse Flex archives as statement-close positions and lots, with no repricing.
 
-    Priority:
-      1. Fresh LSEG delayed prices (connected, <= 180 seconds)
-      2. Cached LSEG prices (<= 7 days)
-      3. Original IBKR Flex prices
-
-    All financial values remain strings. Original Flex values are preserved
-    whenever a valid replacement price is unavailable.
+    Also returns {account: ending cash in USD base} for every account that has a
+    statement; IBKR sometimes excludes accounts from a day's file, and those
+    accounts must not read as empty.
     """
     positions, lots = [], []
+    accounts: dict[str, str] = {}
     seen = {}
 
     for path in files:
@@ -103,6 +101,11 @@ def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
                 continue
 
             seen[key] = path.name
+            accounts[account] = next(
+                (cash.get("endingCash", "") for cash in statement.findall("./CashReport/CashReportCurrency")
+                 if cash.get("currency") == "BASE_SUMMARY"),
+                "",
+            )
 
             for element in statement.findall("./OpenPositions/OpenPosition"):
                 row = {
@@ -136,6 +139,27 @@ def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
                         file=sys.stderr
                     )
 
+    return positions, lots, accounts
+
+
+def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
+    """Parse Flex archives and revalue positions/lots using one LSEG API call.
+
+    Priority:
+      1. Fresh LSEG delayed prices (connected, <= 180 seconds)
+      2. Cached LSEG prices (<= 7 days)
+      3. Original IBKR Flex prices
+
+    All financial values remain strings. Original Flex values are preserved
+    whenever a valid replacement price is unavailable.
+    """
+    positions, lots, _ = read_archives(files)
+    reprice(positions, lots)
+    return positions, lots
+
+
+def reprice(positions: list[dict], lots: list[dict]) -> None:
+    """Revalue positions and lots in place with one LSEG snapshot request."""
     # ---------------------------------------------------------
     # Fetch all LSEG prices with exactly ONE HTTP request.
     # ---------------------------------------------------------
@@ -207,9 +231,25 @@ def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
     # ---------------------------------------------------------
 
     for row in positions + lots:
-
+        # Keep the statement mark alongside the delayed mark. Consumers can
+        # compare both or explicitly choose one without calling two services.
+        row["close_mark_price"] = row["mark_price"]
+        row["close_market_value"] = row["market_value"]
+        row["close_unrealized_pnl"] = row["unrealized_pnl"]
+        row["delayed_mark_price"] = ""
+        row["delayed_market_value"] = ""
+        row["delayed_unrealized_pnl"] = ""
+        row["price_change_from_close"] = ""
+        row["price_change_from_close_pct"] = ""
+        row["quote_ric"] = ""
+        row["quote_bid"] = ""
+        row["quote_ask"] = ""
+        row["quote_trade_time"] = ""
+        row["quote_snapshot_at"] = ""
+        row["quote_last_event_at"] = ""
+        row["price_validation"] = "close_only"
         row["psuedo-live updated"] = 0
-        row["price_source"] = "flex"
+        row["price_source"] = "flex_close"
 
         symbol = row.get("symbol", "").upper()
         quote = quotes.get(symbol)
@@ -255,10 +295,12 @@ def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
         ):
             continue
 
-        # Reject suspicious price-unit or instrument mismatches.
+        # Reject suspicious price-unit or instrument mismatches. The resolver
+        # separately validates the RIC against ticker, ISIN, and listing.
         ratio = price / old_mark
 
         if not Decimal("0.1") <= ratio <= Decimal("10"):
+            row["price_validation"] = "rejected_price_ratio"
             continue
 
         # USD securities: quantity * multiplier * current price.
@@ -276,14 +318,31 @@ def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
         # Works for both long and short positions.
         new_pnl = old_pnl + (new_value - old_value)
 
-        row["mark_price"] = str(price)
-        row["market_value"] = str(new_value)
-        row["unrealized_pnl"] = str(new_pnl)
+        change = price - old_mark
+        change_pct = change / abs(old_mark) * Decimal("100")
+        row["delayed_mark_price"] = str(price)
+        row["delayed_market_value"] = str(new_value)
+        row["delayed_unrealized_pnl"] = str(new_pnl)
+        row["price_change_from_close"] = str(change)
+        row["price_change_from_close_pct"] = str(change_pct)
+        row["quote_ric"] = str(quote.get("ric") or "")
+        row["quote_bid"] = str(quote.get("bid") or "")
+        row["quote_ask"] = str(quote.get("ask") or "")
+        row["quote_trade_time"] = str(quote.get("trade_time") or "")
+        row["quote_snapshot_at"] = str(quote.get("snapshot_at") or "")
+        row["quote_last_event_at"] = str(quote.get("last_stream_event_at") or "")
+        row["price_validation"] = (
+            "accepted_large_move" if abs(change_pct) > Decimal("20") else "accepted"
+        )
+
+        # Preserve the existing selected-price fields for compatibility.
+        row["mark_price"] = row["delayed_mark_price"]
+        row["market_value"] = row["delayed_market_value"]
+        row["unrealized_pnl"] = row["delayed_unrealized_pnl"]
 
         row["psuedo-live updated"] = 1
         row["price_source"] = price_source
 
-    return positions, lots
 
 
 def main() -> None:

@@ -24,3 +24,8 @@ Every expected account has a correctly dated and correctly denominated official 
 
 ## Related decisions
 [ADR-0007](../decisions/0007-archive-raw-flex-xml.md) · [ADR-0013](../decisions/0013-audit-flex-accounting-before-var.md) · [ADR-0018](../decisions/0018-publish-dollar-risk-without-nav.md)
+
+## Update 2026-11-08
+- Re-checked the 2026-11-06 archive: `EquitySummaryByReportDateInBase` still carries only `accountId`, and there is no `ChangeInNAV`. The query has not been changed yet.
+- Interim: the dashboard shows net liquidation value as positions + `endingCash` (ADR-0028), explicitly not NAV. The portfolio-history chart stays off and switches itself on when a `total=` attribute appears.
+- Fields to add to the saved Activity Flex Query: **Net Asset Value (NAV) in Base:** Report Date, Total (Cash and Stock optional); **Change in NAV:** Starting Value, Ending Value, Deposits/Withdrawals, TWR.

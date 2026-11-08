@@ -1,5 +1,7 @@
 # ADR-0019: Publish a read-only Stage 4 dashboard over versioned Stage 3 reports
 
+> **Superseded 2026-11-08 by [ADR-0029](./0029-riskfolio-risk-job-replaces-stage-pipeline.md):** risk is now shown on the portfolio dashboard's Risk management tab.
+
 - **Date:** 2026-10-24
 - **Status:** Accepted
 

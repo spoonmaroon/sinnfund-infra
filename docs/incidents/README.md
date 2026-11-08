@@ -1,6 +1,6 @@
 # SINN Fund — Incident and failure investigations
 
-**Updated:** 2026-10-26
+**Updated:** 2026-11-08
 
 These reports record system failures, investigations, corrective actions, and follow-up work. Root causes remain open where the incident investigation is ongoing.
 
@@ -20,6 +20,9 @@ These reports record system failures, investigations, corrective actions, and fo
 | [INC-0010](./0010-stage3-incomplete-position-and-model-coverage.md) | Stage 3 incomplete model coverage | Oct 24 | Open / disclosed |
 | [INC-0011](./0011-stage4-http-503-account-id-validator.md) | Stage 4 HTTP 503 / account alias validation | Oct 24 | Resolved |
 | [INC-0012](./0012-flex-ingest-unexpected-monday-run-and-failure.md) | Unexpected Flex ingest run and failure | Oct 26 | Open |
+| [INC-0013](./0013-flex-statement-excluded-accounts.md) | Flex statement for Nov 6 excluded three accounts | Nov 6–8 | Mitigated; retry Nov 10 |
+| [INC-0014](./0014-dashboard-summed-foreign-positions-as-usd.md) | Non-USD positions summed as USD; day change $0 | Nov 7–8 | Resolved |
+| [INC-0015](./0015-lseg-history-refresh-and-stage3-failing.md) | LSEG history refresh failing; Stage 3 stuck at Oct 22 | Oct 30–Nov 8 | Open — admin script ready |
 
 ## How to use
 

@@ -32,6 +32,11 @@ Architecture decisions for the SINN Fund platform, from portfolio reporting and 
 | [ADR-0024](./0024-version-controlled-engineering-history.md) | Maintain ADRs and a living engineering record alongside code | 2026-10-26 | Accepted — record initiated with this set |
 | [ADR-0025](./0025-modernize-trade-staging-baskettrader.md) | Evaluate BasketTrader instead of generated trade-staging executable | 2026-10-26 | Proposed — feasibility assessment pending |
 | [ADR-0026](./0026-low-frequency-equity-prediction-research-integration.md) | Define low-frequency equity prediction integration | 2026-10-26 | Proposed — interface undecided |
+| [ADR-0027](./0027-portfolio-ui-served-by-flex-web-live.md) | Serve the portfolio dashboard from flex-web-live and merge close/delayed views | 2026-11-08 | Accepted — root redirect pending |
+| [ADR-0028](./0028-net-liquidation-value-from-positions-and-cash.md) | Show NLV as positions + Flex ending cash; keep history off until NAV | 2026-11-08 | Accepted — provisional |
+| [ADR-0029](./0029-riskfolio-risk-job-replaces-stage-pipeline.md) | Replace Stage 1–4 VaR with a Riskfolio-Lib risk job behind the dashboard | 2026-11-08 | Accepted — supersedes ADR-0015, ADR-0019 |
+| [ADR-0030](./0030-interim-price-history-from-operator-lseg-login.md) | Backfill risk prices with an operator's LSEG login until the server cache works | 2026-11-08 | Accepted — interim |
+| [ADR-0031](./0031-handle-partial-flex-statements.md) | Retry partial Flex statements and carry excluded accounts forward | 2026-11-08 | Accepted — deployed |
 
 ## How to maintain these records
 
