@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 
 const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
-  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems };";
+  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems, wiOpen };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -325,6 +325,14 @@ test("what-if results lead with before/after cards and list every trade and left
   assert.match(html, /\+0.29 pts/);
   assert.match(html, /\$800,000 · 14.96%/);
   assert.match(html, /-218,000/);
+});
+
+test("dropping an Excel or Numbers file asks for CSV instead of filling junk rows", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  await $.api.wiOpen({ name: "trades.xlsx", text: async () => "PK\u0003\u0004\u0014\0\0\0\b\0��" });
+  assert.match($("wiResult").innerHTML, /trades\.xlsx is a spreadsheet file, not CSV/);
+  await $.api.wiOpen({ name: "notes.csv", text: async () => "symbol,quantity\n" });
+  assert.match($("wiResult").innerHTML, /No trades found in notes\.csv/);
 });
 
 test("what-if will not run while a row is missing its quantity or symbol", async () => {

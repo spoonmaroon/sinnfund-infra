@@ -165,14 +165,24 @@ $("wiTemplate").addEventListener("click", () => {
   link.click();
   URL.revokeObjectURL(link.href);
 });
-$("wiFile").addEventListener("change", (e) => { const file = e.target.files[0]; if (file) file.text().then(wiLoad); e.target.value = ""; });
+// Excel and Numbers files are zips; read as text they become junk rows, so ask for CSV or a paste instead.
+function wiOpen(file) {
+  if (!file) return Promise.resolve();
+  return file.text().then((text) => {
+    const binary = /[\0�]/.test(text);
+    if (!binary && wiLoad(text)) return;
+    $("wiResult").innerHTML = `<section class="wi-warning">${esc(binary
+      ? `${file.name} is a spreadsheet file, not CSV. Save it as CSV (File › Export To › CSV), or select the rows and paste them here (⌘V).`
+      : `No trades found in ${file.name}. It needs symbol and quantity columns.`)}</section>`;
+  });
+}
+$("wiFile").addEventListener("change", (e) => { wiOpen(e.target.files[0]); e.target.value = ""; });
 $("wiDrop").addEventListener("dragover", (e) => { e.preventDefault(); $("wiDrop").classList.add("wi-dropping"); });
 $("wiDrop").addEventListener("dragleave", () => $("wiDrop").classList.remove("wi-dropping"));
 $("wiDrop").addEventListener("drop", (e) => {
   e.preventDefault();
   $("wiDrop").classList.remove("wi-dropping");
-  const file = e.dataTransfer.files[0];
-  if (file) file.text().then(wiLoad);
+  wiOpen(e.dataTransfer.files[0]);
 });
 // Paste copied spreadsheet rows anywhere on the page; a single value pastes into the field as usual.
 document.addEventListener("paste", (e) => {
