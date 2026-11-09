@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 
 const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
-  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems, wiOpen };";
+  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -325,6 +325,14 @@ test("what-if results lead with before/after cards and list every trade and left
   assert.match(html, /\+0.29 pts/);
   assert.match(html, /\$800,000 · 14.96%/);
   assert.match(html, /-218,000/);
+});
+
+test("the same symbol and account entered twice becomes one row with the quantities added", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  const t = (symbol, quantity, account = "") => ({ symbol, quantity, account });
+  assert.deepEqual($.api.wiMerge([
+    t("NVDA", "100", "Quant"), t("GLD", "-50"), t("nvda", "1,000", "u9000005"), t("NVDA", "25"), t("GLD", "50"), t("AAPL", ""), t("AAPL", ""),
+  ]), [t("NVDA", "1100", "Quant"), t("GLD", "0"), t("NVDA", "25"), t("AAPL", ""), t("AAPL", "")]);
 });
 
 test("dropping an Excel or Numbers file asks for CSV instead of filling junk rows", async () => {

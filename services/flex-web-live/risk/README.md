@@ -50,7 +50,9 @@ trades.
 - **Entering trades:** type rows; paste rows copied from Excel or Google Sheets
   anywhere on the page; drop or open a CSV (comma, semicolon or tab). Excel and
   Numbers files (.xlsx, .numbers) are refused with a message to export as CSV or
-  paste, since the page cannot read them. Headers are
+  paste, since the page cannot read them. Rows with the same symbol and account
+  (pasted, dropped or typed) are combined into one row with the quantities added;
+  a buy and sell that cancel out leave a 0 row to fix or remove. Headers are
   optional and matched loosely (symbol/ticker, quantity/qty/shares/position,
   account/acct/book); `1,000` and `(25)` are read as 1000 and -25. Accounts can
   be numbers or names from the fund sheet. **Download template** gives a sample.

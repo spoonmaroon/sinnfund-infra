@@ -66,10 +66,24 @@ function wiParse(text) {
   })).filter((trade) => trade.symbol);
 }
 
+// Rows with the same symbol and account become one row with the quantities added up.
+// Rows without a usable quantity stay as they are so the page can flag them.
+function wiMerge(trades) {
+  const rows = new Map();
+  trades.forEach((trade, i) => {
+    const qty = Number(trade.quantity.replace(/[$,\s]/g, ""));
+    const key = trade.symbol && qty ? `${trade.symbol.toUpperCase()}|${wiAccountId(trade.account)}` : i;
+    const seen = rows.get(key);
+    if (seen) seen.quantity = String(Math.round((Number(seen.quantity.replace(/[$,\s]/g, "")) + qty) * 1e6) / 1e6);
+    else rows.set(key, { ...trade });
+  });
+  return [...rows.values()];
+}
+
 function wiLoad(text) {
   const trades = wiParse(text);
   if (!trades.length) return false;
-  wiSetRows([...wiTrades(), ...trades]);
+  wiSetRows(wiMerge([...wiTrades(), ...trades]));
   return true;
 }
 
@@ -126,6 +140,8 @@ function wiProblems() {
 }
 
 function wiRun() {
+  const typed = wiTrades();
+  if (wiMerge(typed).length < typed.length) wiSetRows(wiMerge(typed));
   const problems = wiProblems();
   if (problems.length) {
     $("wiResult").innerHTML = `<section class="wi-warning"><strong>Fix ${problems.length === 1 ? "this row" : "these rows"} first</strong>${problems.map((p) => `<span>${esc(p)}</span>`).join("")}</section>`;
