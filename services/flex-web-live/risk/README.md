@@ -48,7 +48,9 @@ sector weights that change, and the fund's five worst days with and without the
 trades.
 
 - **Entering trades:** type rows; paste rows copied from Excel or Google Sheets
-  anywhere on the page; drop or open a CSV (comma, semicolon or tab). Headers are
+  anywhere on the page; drop or open a CSV (comma, semicolon or tab). Excel and
+  Numbers files (.xlsx, .numbers) are refused with a message to export as CSV or
+  paste, since the page cannot read them. Headers are
   optional and matched loosely (symbol/ticker, quantity/qty/shares/position,
   account/acct/book); `1,000` and `(25)` are read as 1000 and -25. Accounts can
   be numbers or names from the fund sheet. **Download template** gives a sample.
