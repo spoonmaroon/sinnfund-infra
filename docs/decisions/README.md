@@ -38,6 +38,7 @@ Architecture decisions for the SINN Fund platform, from portfolio reporting and 
 | [ADR-0030](./0030-interim-price-history-from-operator-lseg-login.md) | Backfill risk prices with an operator's LSEG login until the server cache works | 2026-11-08 | Partly superseded — history service first, backfill as fallback |
 | [ADR-0031](./0031-handle-partial-flex-statements.md) | Retry partial Flex statements and carry excluded accounts forward | 2026-11-08 | Accepted — deployed |
 | [ADR-0032](./0032-files-now-database-when-triggered.md) | Keep portfolio data in files; add Postgres/ClickHouse at named triggers | 2026-11-08 | Accepted — no database yet |
+| [ADR-0033](./0033-pitch-system-linked-to-trades.md) | Build our own pitch system: analysts submit, signed in, linked to both funds' IBKR trades | 2026-11-11 | Proposed — open questions on sign-in and visibility |
 
 ## How to maintain these records
 
