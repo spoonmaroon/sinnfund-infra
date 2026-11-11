@@ -82,7 +82,9 @@ CLIENT=services/prediction-api/tools/signal_client.py
 
 ## 3. Send a LIVE signal
 
-Use a unique ID, destination, instrument, and target price. The timestamp defaults to now:
+Use a unique ID, destination, instrument, and target price. The instrument can be a plain US ticker
+(`ZBH`) or an LSEG RIC (`ZBH.N`, `ZBRA.OQ`); the export uses the plain ticker. The timestamp defaults
+to now:
 
 ```bash
 python3 "$CLIENT" create example-1 LIVE EXA 123.45

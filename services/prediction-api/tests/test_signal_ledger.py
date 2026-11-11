@@ -151,6 +151,30 @@ class LedgerTest(unittest.TestCase):
             ledger.export_live(operator='exporter')
         self.assertEqual(error.exception.status_code,409)
 
+    def test_lseg_rics_are_quoted_and_exported_as_plain_tickers(self):
+        self.assertEqual([ledger.us_ticker(t) for t in ['ZBH.N','ZBRA.OQ','MSFT.O','BRK.B','BF.A','AAPL']],
+                         ['ZBH','ZBRA','MSFT','BRK.B','BF.A','AAPL'])
+        class Response:
+            def raise_for_status(self): pass
+            def json(self): return {'ZBH':{'symbol':'ZBH','close':'106.81','timestamp':1},'ZBRA':{'symbol':'ZBRA','close':'330.41','timestamp':1}}
+        with patch.dict(os.environ,{'TWELVE_DATA_API_KEY':'test'}), \
+                patch.object(ledger.requests,'get',return_value=Response()) as get:
+            quotes=ledger.fetch_quotes(['ZBH.N','ZBRA.OQ'])
+        self.assertEqual(get.call_args.kwargs['params']['symbol'],'ZBH,ZBRA')
+        self.assertEqual({t:q['price'] for t,q in quotes.items()},{'ZBH.N':'106.81','ZBRA.OQ':'330.41'})
+        ledger.create(ledger.SignalCreate(signal_id='zbh',destination='LIVE',ticker='ZBH.N',price=117,timestamp=123),owner='max')
+        with patch.object(ledger,'fetch_quotes',return_value={'ZBH.N':{'price':'106.81','source':'test','timestamp':time.time(),'fetched_at':time.time()}}):
+            ledger.export_live(operator='exporter')
+        with next((self.root/'exports').glob('*.csv')).open() as f:
+            self.assertEqual(list(csv.reader(f))[1],['TEST','ZBH','0.05'])
+
+    def test_rics_and_plain_tickers_for_one_stock_are_duplicates(self):
+        ledger.create(ledger.SignalCreate(signal_id='a',destination='LIVE',ticker='ZBH.N',price=117,timestamp=123),owner='max')
+        ledger.create(ledger.SignalCreate(signal_id='b',destination='LIVE',ticker='ZBH',price=90,timestamp=123),owner='alice')
+        with self.assertRaises(HTTPException) as error:
+            ledger.export_live(operator='exporter')
+        self.assertEqual(error.exception.status_code,409)
+
     def test_freshness_requires_current_fetch_and_recent_market_timestamp(self):
         now=time.time()
         with patch.object(ledger.time,'time',return_value=now):

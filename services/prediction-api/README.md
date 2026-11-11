@@ -469,6 +469,15 @@ Every export makes a new no-cache quote request. The response must have been fet
 seconds and its market timestamp must be within the approved 5,400-second after-close window. A
 missing/stale quote fails the whole export and consumes nothing.
 
+Tickers can be plain (`ZBH`) or LSEG US RICs (`ZBH.N`, `ZBRA.OQ`, `MSFT.O`): the ledger keeps what
+the sender wrote, but quotes and the export CSV use the plain ticker, and `ZBH` and `ZBH.N` count as
+duplicates. `.A` (NYSE American) is not stripped because it collides with share classes like `BF.A`.
+
+**Known limit (2026-11-11):** the Twelve Data plan allows 8 symbols per minute and 800 a day, and an
+export quotes every pending symbol in one request that must be fresh within 30 seconds. An export
+with more than 8 pending LIVE symbols is therefore refused ("Current prices are unavailable")
+until the quote source changes; see the journal entry for 2026-11-11.
+
 ```bash
 read -rs SIGNAL_EXPORTER_KEY
 export SIGNAL_EXPORTER_KEY

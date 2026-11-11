@@ -223,6 +223,15 @@ def ledger_signature(path):
     return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
+def us_ticker(ticker):
+    """LSEG US RIC -> exchange ticker (ZBH.N -> ZBH, ZBRA.OQ -> ZBRA); other tickers unchanged.
+
+    Senders may use LSEG RICs, but Twelve Data and the IBKR targets file need the plain ticker.
+    shortcut: NYSE American (.A) is left alone because it collides with share classes like BF.A.
+    """
+    return re.sub(r"\.(N|OQ|O)$", "", ticker)
+
+
 def fetch_quotes(tickers):
     key = os.getenv("TWELVE_DATA_API_KEY")
     if not key:
@@ -230,7 +239,7 @@ def fetch_quotes(tickers):
     try:
         response = requests.get(
             "https://api.twelvedata.com/quote",
-            params={"symbol": ",".join(sorted(set(tickers)))},
+            params={"symbol": ",".join(sorted({us_ticker(t) for t in tickers}))},
             headers={"Authorization": "apikey " + key, "Cache-Control": "no-cache"},
             timeout=8,
         )
@@ -261,6 +270,7 @@ def fetch_quotes(tickers):
                           or item.get("timestamp")),
             "fetched_at": fetched_at,
         }
+    quotes = {t: quotes[us_ticker(t)] for t in tickers if us_ticker(t) in quotes}  # keyed as the sender wrote it
     missing = sorted(set(tickers) - quotes.keys())
     if missing:
         raise RuntimeError("Current prices are unavailable for all requested symbols")
@@ -613,11 +623,11 @@ def export_live(operator=Depends(exporter)):
                    if record["status"] == "pending" and record["current"]["destination"] == "LIVE"]
         if not pending:
             raise HTTPException(409, "no pending LIVE signals")
-        symbols = [record["current"]["ticker"] for record in pending]
+        symbols = [us_ticker(record["current"]["ticker"]) for record in pending]
         duplicates = sorted({symbol for symbol in symbols if symbols.count(symbol) > 1})
         if duplicates:
             ids = [record["current"]["signal_id"] for record in pending
-                   if record["current"]["ticker"] in duplicates]
+                   if us_ticker(record["current"]["ticker"]) in duplicates]
             raise HTTPException(409, {"message": "duplicate LIVE symbols", "signal_ids": ids})
         try:
             quotes = fetch_quotes(symbols)
@@ -638,7 +648,7 @@ def export_live(operator=Depends(exporter)):
             if direction is None:
                 rejected.append(signal["signal_id"])
                 continue
-            rows.append([account, signal["ticker"], "0.05" if direction == "LONG" else "-0.05"])
+            rows.append([account, us_ticker(signal["ticker"]), "0.05" if direction == "LONG" else "-0.05"])
         # shortcut: a crash after this write can leave an unindexed CSV; exports are infrequent.
         write_csv(output, rows)
 
