@@ -333,6 +333,7 @@ test("the same symbol and account entered twice becomes one row with the quantit
   assert.deepEqual($.api.wiMerge([
     t("NVDA", "100", "Quant"), t("GLD", "-50"), t("nvda", "1,000", "u9000005"), t("NVDA", "25"), t("GLD", "50"), t("AAPL", ""), t("AAPL", ""),
   ]), [t("NVDA", "1100", "Quant"), t("GLD", "0"), t("NVDA", "25"), t("AAPL", ""), t("AAPL", "")]);
+  assert.deepEqual($.api.wiMerge([t("MSFT", "(25)"), t("MSFT", "$100")]), [t("MSFT", "75")]); // accounting negatives
 });
 
 test("dropping an Excel or Numbers file asks for CSV instead of filling junk rows", async () => {

@@ -42,6 +42,9 @@ function wiAccountId(text) {
   return match ? match[0] : text;
 }
 
+// "$1,000" -> "1000", "(25)" -> "-25": how spreadsheets and accountants write quantities.
+const wiQty = (text) => text.trim().replace(/[$,\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+
 // Spreadsheet paste (tab-separated) or CSV/semicolon files; quoted fields like "1,000" are kept whole.
 function wiParse(text) {
   const lines = text.replace(/\r/g, "").split("\n").filter((line) => line.trim());
@@ -61,7 +64,7 @@ function wiParse(text) {
   }
   return cells.map((row) => ({
     symbol: row[columns.symbol] || "",
-    quantity: (row[columns.quantity] || "").replace(/[$,\s]/g, "").replace(/^\((.*)\)$/, "-$1"),
+    quantity: wiQty(row[columns.quantity] || ""),
     account: columns.account >= 0 ? row[columns.account] || "" : "",
   })).filter((trade) => trade.symbol);
 }
@@ -71,10 +74,10 @@ function wiParse(text) {
 function wiMerge(trades) {
   const rows = new Map();
   trades.forEach((trade, i) => {
-    const qty = Number(trade.quantity.replace(/[$,\s]/g, ""));
+    const qty = Number(wiQty(trade.quantity));
     const key = trade.symbol && qty ? `${trade.symbol.toUpperCase()}|${wiAccountId(trade.account)}` : i;
     const seen = rows.get(key);
-    if (seen) seen.quantity = String(Math.round((Number(seen.quantity.replace(/[$,\s]/g, "")) + qty) * 1e6) / 1e6);
+    if (seen) seen.quantity = String(Math.round((Number(wiQty(seen.quantity)) + qty) * 1e6) / 1e6);
     else rows.set(key, { ...trade });
   });
   return [...rows.values()];
@@ -129,7 +132,7 @@ function wiProblems() {
   const problems = [];
   [...$("wiRows").children].forEach((row, i) => {
     const [symbol, quantity] = [...row.querySelectorAll("input")];
-    const s = symbol.value.trim(), q = quantity.value.trim().replace(/[$,\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+    const s = symbol.value.trim(), q = wiQty(quantity.value);
     symbol.classList.toggle("wi-invalid", !s && !!q);
     const badQty = !!s && (!q || !Number(q));
     quantity.classList.toggle("wi-invalid", badQty);
@@ -140,14 +143,14 @@ function wiProblems() {
 }
 
 function wiRun() {
-  const typed = wiTrades();
-  if (wiMerge(typed).length < typed.length) wiSetRows(wiMerge(typed));
+  const typed = wiTrades(), merged = wiMerge(typed);
+  if (merged.length < typed.length) wiSetRows(merged);
   const problems = wiProblems();
   if (problems.length) {
     $("wiResult").innerHTML = `<section class="wi-warning"><strong>Fix ${problems.length === 1 ? "this row" : "these rows"} first</strong>${problems.map((p) => `<span>${esc(p)}</span>`).join("")}</section>`;
     return Promise.resolve();
   }
-  const trades = wiTrades().map((t) => ({ ...t, quantity: t.quantity.replace(/[$,\s]/g, ""), account: wiAccountId(t.account) }));
+  const trades = wiTrades().map((t) => ({ ...t, quantity: wiQty(t.quantity), account: wiAccountId(t.account) }));
   if (!trades.length) {
     $("wiResult").innerHTML = `<section class="wi-warning">Add at least one trade: a symbol and a quantity.</section>`;
     return Promise.resolve();
