@@ -443,8 +443,11 @@ def worker(stop: threading.Event, store: PriceStore, *, interval: float = 60.0,
                     stop.wait(min(delay, remaining))
                 delay = min(delay * 2, 120.0)
         finally:
-            with store.session_lock:  # wait for a /snapshot using this session to finish
-                store.session = None
+            # Let a /snapshot using this session finish, but never wait forever on a hung one.
+            locked = store.session_lock.acquire(timeout=60)
+            store.session = None
+            if locked:
+                store.session_lock.release()
             if stream is not None:
                 try:
                     stream.close()
