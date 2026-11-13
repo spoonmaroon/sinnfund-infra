@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/heatmap.js", import.meta.url), "utf8")
-  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge, hmSquarify, hmSectors, hmColor, renderHeatmap };";
+  + "\nreturn { positionsCsv, csvCell, wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge, hmSquarify, hmSectors, hmColor, renderHeatmap };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -390,4 +390,17 @@ test("heatmap combines a stock across accounts and colours by price move", async
   assert.equal(($("heatmap").innerHTML.match(/class="hm-tile"/g) || []).length, 2);
   assert.match($("heatmap").innerHTML, /BBB ·S/);
   assert.equal($("hmNote").textContent, "2 holdings in 1 sectors");
+});
+
+test("positions CSV holds every holding, ignoring filters, with names and quoted text", async () => {
+  const $ = await render({ date: "20261106", positions: [
+    position({ account_id: "U9000001", symbol: "AAA", description: 'Acme, "Inc"', market_value: "500" }),
+    position({ account_id: "U9000002", conid: "2", symbol: "BBB", market_value: "-900", day_change_price: "" }),
+  ], lots: [] });
+  $("accountFilter").value = "U9000001";
+  const [head, ...rows] = $.api.positionsCsv();
+  assert.equal(head.length, 17);
+  assert.deepEqual(rows.map((r) => [r[0], r[2], r[3], r[11]]), [["AAA", "U9000001", "Lifeboat", "500"], ["BBB", "U9000002", "Tier One Acct", "-900"]]);
+  assert.equal(rows[1][9], ""); // no previous close: blank, not 0
+  assert.equal($.api.csvCell('Acme, "Inc"'), '"Acme, ""Inc"""');
 });

@@ -177,13 +177,7 @@ $("wiClear").addEventListener("click", () => { wiSetRows([]); $("wiResult").inne
 $("wiRows").addEventListener("click", (e) => { if (e.target.closest(".wi-remove")) { e.target.closest(".wi-row").remove(); wiRenumber(); } });
 $("wiRows").addEventListener("input", (e) => { e.target.classList.remove("wi-invalid"); wiRenumber(); });
 $("wiRows").addEventListener("keydown", (e) => { if (e.key === "Enter") wiRun(); });
-$("wiTemplate").addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob(["symbol,quantity,account\nNVDA,100,\nGLD,-50,Metals & Materials\n"], { type: "text/csv" }));
-  link.download = "what-if-trades.csv";
-  link.click();
-  URL.revokeObjectURL(link.href);
-});
+$("wiTemplate").addEventListener("click", () => downloadCsv("what-if-trades.csv", [["symbol", "quantity", "account"], ["NVDA", 100, ""], ["GLD", -50, "Metals & Materials"]]));
 // Excel and Numbers files are zips; read as text they become junk rows, so ask for CSV or a paste instead.
 function wiOpen(file) {
   if (!file) return Promise.resolve();
