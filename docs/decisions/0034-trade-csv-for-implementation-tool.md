@@ -55,10 +55,20 @@ So **limit orders and good-till-cancelled (GTC) orders are not supported**. Two 
    - `GET /prediction/signals/pending` (public) lists the pending signals with who sent them.
 2. The dashboard gets a public, view-only **Signals** tab: every pending LIVE signal, who sent it, and the CSV download. Anyone can see the queue; only sending (sender key), exporting (exporter key) and clearing (admin key) are protected.
 3. `POST /signals/export` (exporter key, ±0.05, Twelve Data, marks signals exported) is unchanged for now.
+4. **Long/short is decided at trade time, from TWS live prices** (added 2026-11-13). LSEG is 15 minutes delayed; on Nov 13 only 1 of 83 signals had a target within 1% of its price, so the delay rarely flips a side, but the trade itself should use the price it trades at. `services/prediction-api/tools/stage_signals.py` runs where TWS is open:
+   - reads the pending signals from `GET /signals/pending` (each row carries `symbol`, the plain ticker);
+   - prices each symbol live from TWS (bid/ask midpoint, else last trade; never the previous close). No live price means the signal is left out and listed;
+   - decides long or short then, at `±gross/N` per signal (default gross 1.0), adding signals on one stock;
+   - rebalances against the account's NetLiquidation and holdings. By default it trades only signal symbols and leaves other holdings alone; `--close-others` closes them too, as the class tool does;
+   - prints the plan, saves it to `signal_plan_<time>.csv`, asks for `yes`, and stages every order with `transmit=False`;
+   - chooses the order type the class tool cannot: `--order-type ADAPTIVE|MKT|LMT|MIDPRICE`, `--tif DAY|GTC`, `--limit-bps` (a limit that far past the live price).
+   The website CSV stays as an LSEG-priced preview for the class tool.
 
 ## Consequences
 
 - The downloaded CSV only describes the signal book. Because the tool is a full rebalance, run it **only against an account that holds nothing but the signal book**, or merge the account's other holdings into the CSV first (the rebalancing work still to come). Run against an account with other positions, it closes them.
 - Equal weight changes with every new signal: the 83rd signal resizes the other 82.
 - The download depends on the LSEG feed being up. When LSEG cannot be reached it returns 503 rather than a CSV with guessed directions.
-- Limit/GTC orders stay manual in TWS until the tool supports them.
+- With the class tool, limit/GTC orders stay manual in TWS; `stage_signals.py` stages them directly.
+- `stage_signals.py` needs TWS live market data for each symbol (the fund's IBKR subscription); a symbol without it is left out, not priced from a delayed source. Signals that leave the queue (exported, deleted) are not unwound by the default mode: use `--close-others` on an account that holds only the signal book.
+- Tested with a fake TWS (`tests/test_stage_signals.py`); the first real run should be `--dry-run` on paper (port 7497).

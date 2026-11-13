@@ -121,6 +121,7 @@ class ApiAbuseTest(unittest.TestCase):
             code,body=self.request('/signals/pending',owner=owner)
             self.assertEqual(code,200)
             listed={row['signal_id']:row['analyst'] for row in json.loads(body)}
+            self.assertEqual({row['signal_id']:row['symbol'] for row in json.loads(body)}['csv-alice'],'ZBH')  # RIC as plain ticker
             self.assertEqual((listed['csv-alice'],listed['csv-bob']),('alice','bob'))
             code,body=self.request('/signals/portfolio.csv',owner=owner)
             self.assertEqual(code,200)

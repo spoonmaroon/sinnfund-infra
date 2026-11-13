@@ -59,6 +59,20 @@ signals, or `--ledger /path/to/ledger.csv` to inspect a different ledger.
 - The tool rebalances the whole account: it **closes anything the account holds that is not in the CSV**.
   Check a file with `tools/check_trade_csv.py` (runs it through the tool's own code with a fake broker).
 
+### Stage the signals in TWS at trade time
+
+`tools/stage_signals.py` (Python 3.11, `pip install ib_insync tzdata`, TWS or IB Gateway open) prices every pending
+signal live from TWS, decides long or short at that moment (±1/N), rebalances the account and stages the orders
+as Not Transmitted. Start with a dry run on paper:
+
+```bash
+python3 tools/stage_signals.py --account DU1234567 --port 7497 --dry-run
+python3 tools/stage_signals.py --account U1234567 --port 7496 --order-type LMT --limit-bps 10 --tif GTC
+```
+
+Default: trades only signal symbols and leaves other holdings alone; `--close-others` closes everything else too.
+Every order is `transmit=False`; a person transmits in TWS. ADR-0034 has the full rules.
+
 ### Export a CSV on the box
 
 An admin key can export using the same saved key used for sending:

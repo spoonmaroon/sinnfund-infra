@@ -605,7 +605,7 @@ def pending_signals():
     """Every sender's pending LIVE signals, for the dashboard's Signals tab. Public and read-only."""
     with locked_ledger() as (_, _, records):
         return [{"analyst": record["owner"], "signal_id": record["current"]["signal_id"],
-                 "ticker": record["current"]["ticker"], "target_price": record["current"]["price"],
+                 "ticker": record["current"]["ticker"], "symbol": us_ticker(record["current"]["ticker"]), "target_price": record["current"]["price"],
                  "sent_at": record["history"][0]["at"]}
                 for record in pending_live(records)]
 
