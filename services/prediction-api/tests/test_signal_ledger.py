@@ -163,10 +163,15 @@ class LedgerTest(unittest.TestCase):
         self.assertEqual(get.call_args.kwargs['params']['symbol'],'ZBH,ZBRA')
         self.assertEqual({t:q['price'] for t,q in quotes.items()},{'ZBH.N':'106.81','ZBRA.OQ':'330.41'})
         ledger.create(ledger.SignalCreate(signal_id='zbh',destination='LIVE',ticker='ZBH.N',price=117,timestamp=123),owner='max')
-        with patch.object(ledger,'fetch_quotes',return_value={'ZBH.N':{'price':'106.81','source':'test','timestamp':time.time(),'fetched_at':time.time()}}):
-            ledger.export_live(operator='exporter')
+        ledger.create(ledger.SignalCreate(signal_id='zbra',destination='LIVE',ticker='ZBRA',price=300,timestamp=123),owner='max')
+        class Fresh(Response):
+            def json(self): return {s:{'symbol':s,'close':c,'timestamp':time.time()} for s,c in [('ZBH','106.81'),('ZBRA','330.41')]}
+        with patch.dict(os.environ,{'TWELVE_DATA_API_KEY':'test'}), \
+                patch.object(ledger.requests,'get',return_value=Fresh()):  # real fetch_quotes, faked HTTP only
+            result=ledger.export_live(operator='exporter')
+        self.assertEqual(result['rows'],2)
         with next((self.root/'exports').glob('*.csv')).open() as f:
-            self.assertEqual(list(csv.reader(f))[1],['TEST','ZBH','0.05'])
+            self.assertEqual(list(csv.reader(f))[1:],[['TEST','ZBH','0.05'],['TEST','ZBRA','-0.05']])
 
     def test_rics_and_plain_tickers_for_one_stock_are_duplicates(self):
         ledger.create(ledger.SignalCreate(signal_id='a',destination='LIVE',ticker='ZBH.N',price=117,timestamp=123),owner='max')

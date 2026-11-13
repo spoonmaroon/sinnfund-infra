@@ -630,7 +630,7 @@ def export_live(operator=Depends(exporter)):
                    if us_ticker(record["current"]["ticker"]) in duplicates]
             raise HTTPException(409, {"message": "duplicate LIVE symbols", "signal_ids": ids})
         try:
-            quotes = fetch_quotes(symbols)
+            quotes = fetch_quotes([record["current"]["ticker"] for record in pending])  # keyed as stored
             require_fresh_quotes(quotes)
         except RuntimeError as error:
             raise HTTPException(503, str(error)) from None
