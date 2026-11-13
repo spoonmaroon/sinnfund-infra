@@ -410,28 +410,23 @@ test("positions CSV holds every holding, ignoring filters, with names and quoted
   assert.equal($.api.csvCell('Acme, "Inc"'), '"Acme, ""Inc"""');
 });
 
-test("signals page lists everyone's pending signals with the visitor's key and downloads the trade-tool CSV", async () => {
+test("signals page is public: lists everyone's pending signals and downloads the trade-tool CSV", async () => {
   const seen = [];
   const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined, {
-    "/prediction/signals/pending": (init) => (seen.push(init.headers.Authorization), init.headers.Authorization === "Bearer good"
-      ? [{ analyst: "max", signal_id: "a1", ticker: "ZBH.N", target_price: 117.1, sent_at: "2026-11-09T22:51:34Z" },
-         { analyst: "jayden", signal_id: "t<b>", ticker: "AAPL", target_price: 280, sent_at: "2026-11-04T02:04:10Z" },
-         { analyst: "max", signal_id: "a2", ticker: "ZBRA.OQ", target_price: 348.7, sent_at: "2026-11-09T22:51:35Z" }]
-      : { status: 401 }),
+    "/prediction/signals/pending": (init) => (seen.push(init), [
+      { analyst: "max", signal_id: "a1", ticker: "ZBH.N", target_price: 117.1, sent_at: "2026-11-09T22:51:34Z" },
+      { analyst: "jayden", signal_id: "t<b>", ticker: "AAPL", target_price: 280, sent_at: "2026-11-04T02:04:10Z" },
+      { analyst: "max", signal_id: "a2", ticker: "ZBRA.OQ", target_price: 348.7, sent_at: "2026-11-09T22:51:35Z" }]),
     "/prediction/signals/portfolio.csv": { text: "account,symbol,target\nU1,ZBH,0.5\nU1,ZBRA,-0.5\n", headers: { "X-Signals-Left-Out": "t1" } },
   });
-  $("sgKey").value = "bad";
   await $.api.sgLoad();
-  assert.match($("sgMsg").textContent, /not accepted/);
-  assert.equal($("sgDownload").disabled, true);
-  $("sgKey").value = " good ";
-  await $.api.sgLoad();
-  assert.deepEqual(seen, ["Bearer bad", "Bearer good"]);
-  assert.equal($("sgNote").textContent, "3 pending from 2 senders");
-  assert.equal($("sgSummary").textContent, "max 2 · jayden 1");
+  assert.deepEqual(seen, [undefined]); // no key, no headers
+  assert.equal($("sgCount").textContent, "3");
+  assert.equal($("sgSenders").textContent, "2");
+  assert.equal($("sgLatestNote").textContent, "max · ZBRA.OQ");
+  assert.match($("sgChips").innerHTML, /max<b>2<\/b>[\s\S]*jayden<b>1<\/b>/);
   assert.match($("sgRows").innerHTML, /ZBRA\.OQ[\s\S]*ZBH\.N[\s\S]*AAPL/); // newest first
   assert.match($("sgRows").innerHTML, /t&lt;b&gt;/);
-  assert.equal($("sgDownload").disabled, false);
   await $.api.sgDownload();
   assert.equal($("sgMsg").textContent, "Downloaded 2 rows. Left out (no LSEG price, or target equals price): t1");
 });

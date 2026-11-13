@@ -244,7 +244,7 @@ The handler checks for a loopback client address. **Do not reverse proxy `/refre
 
 ### `GET /snapshot?symbols=ZBH.N,AAPL` (localhost-only)
 
-One-off delayed prices for any symbols, used by the prediction API to price signals (ADR-0034). A RIC is used as sent; a plain US ticker is tried as `.N`, `.OQ`, `.O`, `.A`, `.P`, `.K` and the first venue with a price wins. Price is `TRDPRC_1`, else `HST_CLOSE`. Returns `{"quotes": {symbol: {"ric", "price"}}, "missing": [...]}`; up to 500 symbols.
+One-off delayed prices for any symbols, used by the prediction API to price signals (ADR-0034). It opens a short delayed stream, reads the first image of each RIC and closes it; the login is entitled to delayed streaming (`/` RICs) but not to the REST pricing snapshot (`trapi.data.pricing.read`). A RIC is used as sent (`ZBH.N` → `/ZBH.N`); a plain US ticker is tried as `.N`, `.OQ`, `.P`, `.A` and the first venue with a price wins. Price is `TRDPRC_1`, else `HST_CLOSE`. Returns `{"quotes": {symbol: {"ric", "price"}}, "missing": [...]}`; up to 500 symbols.
 
 The fund's LSEG login allows **one session at a time**. While the stream is open the route reuses its session; otherwise it opens a short session with `signon_control=False`, which fails (503) instead of displacing another login. If the history refresh or this route reports "session quota is reached", something else holds the login.
 

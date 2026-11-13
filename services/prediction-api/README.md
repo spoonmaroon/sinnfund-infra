@@ -43,10 +43,10 @@ ssh sinnfund 'python3 /opt/prediction-api/tools/signal_list.py --destination LIV
 The viewer defaults to pending. Use `--status all` to include deleted/exported
 signals, or `--ledger /path/to/ledger.csv` to inspect a different ledger.
 
-### Download the pending signals (any sender key)
+### Download the pending signals (public, no key)
 
 - `GET /signals/pending` lists every sender's pending LIVE signals as JSON (`analyst, signal_id, ticker,
-  target_price, sent_at`). The dashboard's Signals tab reads it with the visitor's own key.
+  target_price, sent_at`). The dashboard's Signals tab shows it.
 - `GET /signals/portfolio.csv` returns them as the class Implementation tool's trade sheet,
   `account,symbol,target` (ADR-0034). `account` is `SIGNAL_LIVE_ACCOUNT`, `symbol` the plain ticker, and
   `target` is equal weight: `+1/N` when the target price is above the current LSEG delayed price, `-1/N`
@@ -54,7 +54,8 @@ signals, or `--ledger /path/to/ledger.csv` to inspect a different ledger.
   last row per symbol). Prices come from the LSEG feed's local `/snapshot` (`LSEG_FEED_URL`, default
   `http://127.0.0.1:8091`), so there is no Twelve Data limit. Signals without a price, or with target equal
   to price, are left out and named in the `X-Signals-Left-Out` header. LSEG unreachable returns 503.
-- Both are read-only (nothing is marked exported). Exporter-only keys are refused; use a sender or admin key.
+- Both are public and read-only: no key, nothing is marked exported. Sending still needs a sender key,
+  exporting an exporter key and clearing an admin key. LSEG prices are cached for 60 s.
 - The tool rebalances the whole account: it **closes anything the account holds that is not in the CSV**.
   Check a file with `tools/check_trade_csv.py` (runs it through the tool's own code with a fake broker).
 

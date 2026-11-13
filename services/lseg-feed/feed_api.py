@@ -243,20 +243,28 @@ RIC_SUFFIX = re.compile(r"\.(N|O|OQ|A|P|K|Z)$")
 
 
 def ric_candidates(symbol: str) -> list[str]:
-    """A RIC as sent (ZBH.N), or a plain US ticker tried on each US venue (AAPL -> AAPL.N, AAPL.OQ, ...)."""
+    """Delayed RICs to try: a RIC as sent (ZBH.N -> /ZBH.N), or a plain US ticker on each venue.
+
+    The login is entitled to delayed streaming only ("/" prefix), not to REST pricing snapshots.
+    """
     if RIC_SUFFIX.search(symbol):
-        return [symbol]
-    return [symbol + suffix for suffix in (".N", ".OQ", ".O", ".A", ".P", ".K")]
+        return ["/" + symbol]
+    return ["/" + symbol + suffix for suffix in (".N", ".OQ", ".P", ".A")]
 
 
 def take_snapshot(session: Any, symbols: list[str]) -> dict[str, dict]:
-    """Last trade (or previous close) per symbol from one LSEG pricing snapshot request."""
+    """Last trade (or previous close) per symbol from one short delayed stream: open, read, close."""
     import lseg.data as ld
     candidates = {symbol: ric_candidates(symbol) for symbol in symbols}
     rics = sorted({ric for rics in candidates.values() for ric in rics})
-    frame = ld.content.pricing.Definition(universe=rics, fields=["TRDPRC_1", "HST_CLOSE"]).get_data(session=session).data.df
+    stream = ld.content.pricing.Definition(universe=rics, fields=["TRDPRC_1", "HST_CLOSE"]).get_stream(session=session)
+    stream.open(with_updates=False)  # returns once every RIC has its first image (or a status)
+    try:
+        rows = stream.get_snapshot().to_dict(orient="records")
+    finally:
+        stream.close()
     prices = {}
-    for row in frame.to_dict(orient="records"):
+    for row in rows:
         price = clean_number(row.get("TRDPRC_1")) or clean_number(row.get("HST_CLOSE"))
         if price and price > 0:
             prices[str(row.get("Instrument"))] = price
@@ -266,7 +274,6 @@ def take_snapshot(session: Any, symbols: list[str]) -> dict[str, dict]:
         if ric:
             quotes[symbol] = {"ric": ric, "price": prices[ric]}
     return quotes
-
 
 def refresh_flex_symbols(store: PriceStore):
     """Optional: discover current positions once per session, while EDP is open.

@@ -18,11 +18,12 @@ class Frame:
 
 
 def fake_lseg(rows, seen):
-    """Stand-in for lseg.data: pricing snapshot returns `rows` and records the RICs asked for."""
+    """Stand-in for lseg.data: a pricing stream whose snapshot is `rows`; records the RICs asked for."""
     def definition(universe, fields):
         seen.extend(universe)
-        result = types.SimpleNamespace(data=types.SimpleNamespace(df=Frame(rows)))
-        return types.SimpleNamespace(get_data=lambda session: result)
+        stream = types.SimpleNamespace(open=lambda with_updates: None, close=lambda: seen.append("closed"),
+                                       get_snapshot=lambda: Frame(rows))
+        return types.SimpleNamespace(get_stream=lambda session: stream)
     ld = types.SimpleNamespace(content=types.SimpleNamespace(pricing=types.SimpleNamespace(Definition=definition)))
     package = types.ModuleType("lseg")
     package.data = ld
@@ -31,20 +32,21 @@ def fake_lseg(rows, seen):
 
 class SnapshotTest(unittest.TestCase):
     def test_rics_kept_and_plain_tickers_tried_on_each_venue(self):
-        self.assertEqual(feed_api.ric_candidates("ZBH.N"), ["ZBH.N"])
-        self.assertEqual(feed_api.ric_candidates("AAPL")[:3], ["AAPL.N", "AAPL.OQ", "AAPL.O"])
+        self.assertEqual(feed_api.ric_candidates("ZBH.N"), ["/ZBH.N"])
+        self.assertEqual(feed_api.ric_candidates("AAPL"), ["/AAPL.N", "/AAPL.OQ", "/AAPL.P", "/AAPL.A"])
 
     def test_first_priced_venue_wins_and_previous_close_fills_in(self):
-        rows = [{"Instrument": "ZBH.N", "TRDPRC_1": 107.5, "HST_CLOSE": 107.0},
-                {"Instrument": "AAPL.N", "TRDPRC_1": None, "HST_CLOSE": None},
-                {"Instrument": "AAPL.OQ", "TRDPRC_1": float("nan"), "HST_CLOSE": 280.0},
-                {"Instrument": "AAPL.O", "TRDPRC_1": 281.0, "HST_CLOSE": 280.0}]
+        rows = [{"Instrument": "/ZBH.N", "TRDPRC_1": 107.5, "HST_CLOSE": 107.0},
+                {"Instrument": "/AAPL.N", "TRDPRC_1": None, "HST_CLOSE": None},
+                {"Instrument": "/AAPL.OQ", "TRDPRC_1": float("nan"), "HST_CLOSE": 280.0},
+                {"Instrument": "/AAPL.P", "TRDPRC_1": 281.0, "HST_CLOSE": 280.0}]
         seen = []
         with patch.dict(sys.modules, fake_lseg(rows, seen)):
             quotes = feed_api.take_snapshot(object(), ["ZBH.N", "AAPL", "NOPE.N"])
-        self.assertEqual(quotes, {"ZBH.N": {"ric": "ZBH.N", "price": 107.5},
-                                  "AAPL": {"ric": "AAPL.OQ", "price": 280.0}})
-        self.assertIn("NOPE.N", seen)
+        self.assertEqual(quotes, {"ZBH.N": {"ric": "/ZBH.N", "price": 107.5},
+                                  "AAPL": {"ric": "/AAPL.OQ", "price": 280.0}})
+        self.assertIn("/NOPE.N", seen)
+        self.assertEqual(seen[-1], "closed")  # the stream is always closed
 
     def test_route_uses_the_open_session_and_refuses_bad_input(self):
         from fastapi import HTTPException

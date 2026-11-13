@@ -197,6 +197,21 @@ class LedgerTest(unittest.TestCase):
                 ledger.portfolio_csv()
         self.assertEqual(error.exception.status_code,503)
 
+    def test_lseg_prices_are_cached_for_a_minute(self):
+        ledger._lseg_cache.clear()
+        class Response:
+            def raise_for_status(self): pass
+            def json(self): return {'quotes':{'ZBH.N':{'ric':'/ZBH.N','price':103.2}},'missing':['NOPE']}
+        with patch.object(ledger.requests,'get',return_value=Response()) as get:
+            self.assertEqual(ledger.lseg_prices(['ZBH.N','NOPE','ZBH.N']),{'ZBH.N':103.2})
+            self.assertEqual(ledger.lseg_prices(['NOPE','ZBH.N']),{'ZBH.N':103.2})
+            self.assertEqual(get.call_count,1)
+            self.assertEqual(get.call_args.kwargs['params'],{'symbols':'NOPE,ZBH.N'})
+            with patch.object(ledger.time,'monotonic',return_value=ledger.time.monotonic()+61):
+                ledger.lseg_prices(['ZBH.N','NOPE'])
+            self.assertEqual(get.call_count,2)
+        ledger._lseg_cache.clear()
+
     def test_freshness_requires_current_fetch_and_recent_market_timestamp(self):
         now=time.time()
         with patch.object(ledger.time,'time',return_value=now):

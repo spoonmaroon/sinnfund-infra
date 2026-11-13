@@ -108,11 +108,10 @@ See one signal, including its current revision and audit history:
 python3 "$CLIENT" get example-1
 ```
 
-See every analyst's pending LIVE signals on the dashboard's **Signals** tab (https://sinnfund.jkoh.dev/live/#signals, paste your sender key), or download the trade sheet the class Implementation tool runs:
+See every analyst's pending LIVE signals on the dashboard's **Signals** tab (https://sinnfund.jkoh.dev/live/#signals, no key needed), or download the trade sheet the class Implementation tool runs:
 
 ```bash
-curl -fsS -H "Authorization: Bearer $(cat ~/.config/sinnfund/signal-sender.key)" \
-  https://sinnfund.jkoh.dev/prediction/signals/portfolio.csv -o ~/Downloads/signals-targets.csv
+curl -fsS https://sinnfund.jkoh.dev/prediction/signals/portfolio.csv -o ~/Downloads/signals-targets.csv
 ```
 
 Columns: `account,symbol,target`. Each signal is `±1/N`: long if its target is above the LSEG price, short if below. Nothing is exported or changed. The tool closes anything else the account holds, so read ADR-0034 before running it.

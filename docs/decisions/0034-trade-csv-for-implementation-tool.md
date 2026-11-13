@@ -45,14 +45,15 @@ So **limit orders and good-till-cancelled (GTC) orders are not supported**. Two 
 
 ## Decision
 
-1. `GET /prediction/signals/portfolio.csv` (any sender key) returns pending LIVE signals as `account,symbol,target`:
+1. `GET /prediction/signals/portfolio.csv` (public, no key) returns pending LIVE signals as `account,symbol,target`:
    - `account` is the server's `SIGNAL_LIVE_ACCOUNT`.
    - `symbol` is the plain US ticker (`ZBH.N` → `ZBH`, via `us_ticker`).
    - `target` is **equal weight**: each priced signal gets `±1/N`, long when its target price is above the current price, short when below, so gross is 100% of the account. Two signals on one stock are added together, because the tool would otherwise keep only the last row.
-   - The current price is an **LSEG delayed snapshot**, so there is no Twelve Data 8-per-minute limit.
+   - The current price is an **LSEG delayed price** from a short stream opened by the feed's `/snapshot` (the login has no REST snapshot entitlement), cached 60 s, so there is no Twelve Data 8-per-minute limit.
    - Signals that cannot be priced, or whose target equals the price, are left out and listed in the `X-Signals-Left-Out` response header.
    - It is read-only: nothing is marked exported.
-2. The dashboard gets a **Signals** tab. A visitor pastes their own sender key, sees every pending LIVE signal and who sent it, and downloads that CSV. The `/live/` site has no login, so the key is the access control; it is kept in the browser session only.
+   - `GET /prediction/signals/pending` (public) lists the pending signals with who sent them.
+2. The dashboard gets a public, view-only **Signals** tab: every pending LIVE signal, who sent it, and the CSV download. Anyone can see the queue; only sending (sender key), exporting (exporter key) and clearing (admin key) are protected.
 3. `POST /signals/export` (exporter key, ±0.05, Twelve Data, marks signals exported) is unchanged for now.
 
 ## Consequences

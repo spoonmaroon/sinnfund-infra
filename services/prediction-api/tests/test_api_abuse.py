@@ -114,10 +114,10 @@ class ApiAbuseTest(unittest.TestCase):
         self.assertEqual(self.request('/reset',{},'alice')[0],401)
         self.assertEqual(self.request('/portfolio',owner='alice')[0],401)
 
-    def test_every_sender_downloads_everyones_pending_live_signals(self):
+    def test_anyone_reads_pending_live_signals_without_a_key(self):
         self.assertEqual(self.request('/signals',dict(self.signal('csv-alice'),ticker='ZBH.N'),'alice')[0],202)
         self.assertEqual(self.request('/signals',dict(self.signal('csv-bob'),ticker='ZBRA',price=90),'bob')[0],202)
-        for owner in ['alice','bob','admin']:
+        for owner in ['alice',None,'admin']:
             code,body=self.request('/signals/pending',owner=owner)
             self.assertEqual(code,200)
             listed={row['signal_id']:row['analyst'] for row in json.loads(body)}
@@ -130,9 +130,9 @@ class ApiAbuseTest(unittest.TestCase):
             self.assertGreater(targets['ZBH'],0)  # target 110 above the stubbed LSEG price of 100
             self.assertLess(targets['ZBRA'],0)
             self.assertLessEqual(sum(abs(t) for t in targets.values()),1+1e-6)
-        for route in ['/signals/pending','/signals/portfolio.csv']:
-            for owner in [None,'exporter']:
-                self.assertEqual(self.request(route,owner=owner)[0],401)
+        for route in ['/signals/pending','/signals/portfolio.csv']:  # public: no key needed
+            self.assertEqual(self.request(route,owner=None)[0],200)
+        self.assertEqual(self.request('/signals/clear',{},None)[0],401)  # clearing still needs the admin key
         self.assertEqual(json.loads(self.request('/signals/csv-alice')[1])['status'],'pending')  # download changes nothing
 
     def test_nonfinite_numbers_are_client_errors_not_server_errors(self):

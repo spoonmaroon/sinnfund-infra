@@ -578,18 +578,31 @@ def pending_live(records):
                   key=lambda record: record["history"][0]["at"])
 
 
+_lseg_cache = {}  # tuple of tickers -> (fetched monotonic time, prices)
+
+
 def lseg_prices(tickers):
-    """Delayed LSEG prices keyed by ticker as sent, from the local LSEG feed's /snapshot route."""
+    """Delayed LSEG prices keyed by ticker as sent, from the local LSEG feed's /snapshot route.
+
+    Cached for 60 s: the CSV is public, and each snapshot opens an LSEG stream.
+    """
+    key = tuple(sorted(set(tickers)))
+    cached = _lseg_cache.get(key)
+    if cached and time.monotonic() - cached[0] < 60:
+        return cached[1]
     url = os.getenv("LSEG_FEED_URL", "http://127.0.0.1:8091") + "/snapshot"
-    response = requests.get(url, params={"symbols": ",".join(sorted(set(tickers)))}, timeout=90)
+    response = requests.get(url, params={"symbols": ",".join(key)}, timeout=90)
     response.raise_for_status()
-    return {ticker: quote["price"] for ticker, quote in response.json()["quotes"].items()}
+    prices = {ticker: quote["price"] for ticker, quote in response.json()["quotes"].items()}
+    _lseg_cache.clear()  # keep only the latest set of tickers
+    _lseg_cache[key] = (time.monotonic(), prices)
+    return prices
 
 
 # Declared before /{signal_id} so these paths are not read as signal IDs.
 @router.get("/pending")
-def pending_signals(_reader=Depends(sender)):
-    """Every sender's pending LIVE signals, for the dashboard's Signals tab."""
+def pending_signals():
+    """Every sender's pending LIVE signals, for the dashboard's Signals tab. Public and read-only."""
     with locked_ledger() as (_, _, records):
         return [{"analyst": record["owner"], "signal_id": record["current"]["signal_id"],
                  "ticker": record["current"]["ticker"], "target_price": record["current"]["price"],
@@ -598,11 +611,12 @@ def pending_signals(_reader=Depends(sender)):
 
 
 @router.get("/portfolio.csv")
-def portfolio_csv(_reader=Depends(sender)):
+def portfolio_csv():
     """Pending LIVE signals as the Implementation tool's account,symbol,target file (ADR-0034).
 
     Equal weight: each signal is +1/N if its target is above the LSEG price, -1/N if below. Signals on one
-    stock are added, since the tool keeps only the last row per symbol. Read-only: nothing marked exported.
+    stock are added, since the tool keeps only the last row per symbol. Public and read-only: nothing is
+    marked exported; clearing and exporting still need admin/exporter keys.
     """
     account = os.getenv("SIGNAL_LIVE_ACCOUNT")
     if not account:
