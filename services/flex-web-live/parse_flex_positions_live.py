@@ -65,6 +65,25 @@ def latest_date(archive_dir: Path, before: str = "99999999") -> str:
 
 
 
+def statements(files: list[Path]):
+    """(path, FlexStatement) for each statement, skipping one already read: a re-downloaded day stores
+    the same (account, fromDate, toDate) statement again."""
+    seen = {}
+    for path in files:
+        with gzip.open(path, "rb") as stream:
+            root = ET.parse(stream).getroot()
+        if root.tag != "FlexQueryResponse":
+            raise ValueError(f"Unexpected XML root {root.tag!r} in {path}")
+        for statement in root.iter("FlexStatement"):
+            key = (statement.get("accountId", ""), statement.get("fromDate", ""), statement.get("toDate", ""))
+            if key in seen:
+                print(f"Skipping duplicate account {key[0]} in {path.name}; already read from {seen[key]}",
+                      file=sys.stderr)
+                continue
+            seen[key] = path.name
+            yield path, statement
+
+
 def read_archives(files: list[Path]) -> tuple[list[dict], list[dict], dict[str, str]]:
     """Parse Flex archives as statement-close positions and lots, with no repricing.
 
@@ -74,70 +93,48 @@ def read_archives(files: list[Path]) -> tuple[list[dict], list[dict], dict[str, 
     """
     positions, lots = [], []
     accounts: dict[str, str] = {}
-    seen = {}
 
-    for path in files:
+    for path, statement in statements(files):
         book = path.name.removesuffix(".xml.gz")
+        account = statement.get("accountId", "")
+        date = statement.get("toDate", "")
+        accounts[account] = next(
+            (cash.get("endingCash", "") for cash in statement.findall("./CashReport/CashReportCurrency")
+             if cash.get("currency") == "BASE_SUMMARY"),
+            "",
+        )
 
-        with gzip.open(path, "rb") as stream:
-            root = ET.parse(stream).getroot()
+        for element in statement.findall("./OpenPositions/OpenPosition"):
+            row = {
+                "report_date": element.get("reportDate") or date,
+                "book": book,
+                "account_id": element.get("accountId") or account,
+                **{
+                    name: element.get(attribute, "")
+                    for name, attribute in FIELDS.items()
+                },
+            }
 
-        if root.tag != "FlexQueryResponse":
-            raise ValueError(
-                f"Unexpected XML root {root.tag!r} in {path}"
-            )
+            detail = element.get("levelOfDetail", "SUMMARY")
 
-        for statement in root.iter("FlexStatement"):
-            account = statement.get("accountId", "")
-            date = statement.get("toDate", "")
-            key = (account, statement.get("fromDate", ""), date)
+            if detail == "SUMMARY":
+                positions.append(row)
 
-            if key in seen:
-                print(
-                    f"Skipping duplicate account {account} in {path.name}; "
-                    f"already read from {seen[key]}",
-                    file=sys.stderr
-                )
-                continue
-
-            seen[key] = path.name
-            accounts[account] = next(
-                (cash.get("endingCash", "") for cash in statement.findall("./CashReport/CashReportCurrency")
-                 if cash.get("currency") == "BASE_SUMMARY"),
-                "",
-            )
-
-            for element in statement.findall("./OpenPositions/OpenPosition"):
-                row = {
-                    "report_date": element.get("reportDate") or date,
-                    "book": book,
-                    "account_id": element.get("accountId") or account,
+            elif detail == "LOT":
+                lots.append({
+                    **row,
                     **{
                         name: element.get(attribute, "")
-                        for name, attribute in FIELDS.items()
+                        for name, attribute in LOT_FIELDS.items()
                     },
-                }
+                })
 
-                detail = element.get("levelOfDetail", "SUMMARY")
-
-                if detail == "SUMMARY":
-                    positions.append(row)
-
-                elif detail == "LOT":
-                    lots.append({
-                        **row,
-                        **{
-                            name: element.get(attribute, "")
-                            for name, attribute in LOT_FIELDS.items()
-                        },
-                    })
-
-                else:
-                    print(
-                        f"Skipping unknown levelOfDetail={detail!r} "
-                        f"in {path.name}",
-                        file=sys.stderr
-                    )
+            else:
+                print(
+                    f"Skipping unknown levelOfDetail={detail!r} "
+                    f"in {path.name}",
+                    file=sys.stderr
+                )
 
     return positions, lots, accounts
 
@@ -151,14 +148,11 @@ def read_flows(files: list[Path]) -> dict[str, float]:
     Transfers between the fund's own accounts cancel out when summed across accounts.
     """
     flows: dict[str, float] = {}
-    for path in files:
-        with gzip.open(path, "rb") as stream:
-            root = ET.parse(stream).getroot()
-        for statement in root.iter("FlexStatement"):
-            for cash in statement.findall("./CashReport/CashReportCurrency"):
-                if cash.get("currency") == "BASE_SUMMARY":
-                    account = statement.get("accountId", "")
-                    flows[account] = flows.get(account, 0.0) + sum(float(cash.get(f) or 0) for f in FLOW_FIELDS)
+    for _, statement in statements(files):
+        for cash in statement.findall("./CashReport/CashReportCurrency"):
+            if cash.get("currency") == "BASE_SUMMARY":
+                account = statement.get("accountId", "")
+                flows[account] = flows.get(account, 0.0) + sum(float(cash.get(f) or 0) for f in FLOW_FIELDS)
     return flows
 
 
@@ -184,14 +178,9 @@ TRADE_FIELDS = {
 
 def read_trades(files: list[Path]) -> list[dict]:
     """Executions (<Trade levelOfDetail="EXECUTION">) from Flex archives; values stay strings."""
-    trades = []
-    for path in files:
-        with gzip.open(path, "rb") as stream:
-            root = ET.parse(stream).getroot()
-        for element in root.iter("Trade"):
-            if element.get("levelOfDetail", "EXECUTION") == "EXECUTION":
-                trades.append({name: element.get(attribute, "") for name, attribute in TRADE_FIELDS.items()})
-    return trades
+    return [{name: element.get(attribute, "") for name, attribute in TRADE_FIELDS.items()}
+            for _, statement in statements(files) for element in statement.iter("Trade")
+            if element.get("levelOfDetail", "EXECUTION") == "EXECUTION"]
 
 
 def parse_archives(files: list[Path]) -> tuple[list[dict], list[dict]]:
@@ -318,9 +307,9 @@ def reprice(positions: list[dict], lots: list[dict]) -> None:
             continue
 
         try:
-            # Options trade rarely, so their last trade can be days old: use the bid/ask midpoint.
-            option_mid = quote.get("mid") if row["asset_category"] == "OPT" else None
-            price = Decimal(str(option_mid or quote["price"]))
+            # Options trade rarely, so their last trade can be days old: midpoint only. No mid (bid 0 or
+            # missing) gives Decimal("None") -> InvalidOperation below, and the row keeps the statement mark.
+            price = Decimal(str(quote.get("mid") if row["asset_category"] == "OPT" else quote["price"]))
             old_mark = Decimal(row["mark_price"])
             old_value = Decimal(row["market_value"])
             old_pnl = Decimal(row["unrealized_pnl"])

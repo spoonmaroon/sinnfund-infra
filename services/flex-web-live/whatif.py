@@ -59,7 +59,6 @@ def gross_by_sector(book: dict[str, float], sectors: dict[str, str]) -> dict[str
         name = sectors.get(symbol, "Unclassified")
         out[name] = out.get(name, 0.0) + abs(value)
     return out
-MAX_TRADES = 500
 
 
 def ticker(symbol) -> str:
@@ -89,7 +88,7 @@ def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
     days = len(data["dates"])
     market = returns.get(data.get("market", ""))
     accepted, rejected = [], []
-    for row, trade in enumerate(trades[:MAX_TRADES], start=1):
+    for row, trade in enumerate(trades, start=1):  # the API caps a basket at 2000 rows
         symbol = ticker(trade.get("symbol"))
         account = str(trade.get("account") or "").strip()
         try:
@@ -151,8 +150,7 @@ def what_if(data: dict, sectors: dict[str, str], trades: list[dict]) -> dict:
                     "stand_alone_var_95": round(var_hist(leg["pnl"], 0.05), 2),
                     "es_contribution": round(-sum(leg["pnl"][i] for i in tail) / len(tail), 2)}
                    for leg in accepted],
-        "rejected": rejected + [{"row": row, "symbol": str(t.get("symbol", "")), "reason": f"over the {MAX_TRADES}-trade limit"}
-                                for row, t in enumerate(trades[MAX_TRADES:], start=MAX_TRADES + 1)],
+        "rejected": rejected,
         "basket": {"net_value": round(sum(leg["value"] for leg in accepted), 2),
                    "gross_value": round(sum(abs(leg["value"]) for leg in accepted), 2),
                    "stand_alone_var_95": round(var_hist(basket, 0.05), 2),

@@ -6,7 +6,7 @@ the fund's holdings only. Output: /opt/lseg-history/universe.env with
     LSEG_HISTORY_EXTRA=AAPL=AAPL.OQ,BRK.B=BRKb.N,...
 which lseg-history-refresh reads next to LSEG_SYMBOLS (holdings win on overlap).
 
-Run as root with the lseg-history venv and the feed's LSEG login (fix-risk-pipeline.sh step 6):
+Run as root with the lseg-history venv and the feed's LSEG login (add-sp500-history.sh step 2 does this):
     set -a; . /opt/lseg-feed/.env; set +a
     /opt/lseg-history/venv/bin/python sp500_universe.py /opt/lseg-history/universe.env
 """

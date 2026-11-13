@@ -86,6 +86,19 @@ class OptionPriceTests(unittest.TestCase):
         self.assertEqual(option["quote_ric"], "/IWMW202628000.U")
         self.assertEqual(warrant["price_validation"], "close_only")
 
+    def test_option_without_a_midpoint_keeps_the_statement_mark_not_a_stale_trade(self):
+        from parse_flex_positions_live import reprice
+        option = {"symbol": "IWM   261120P00280000", "asset_category": "OPT", "currency": "USD",
+                  "quantity": "20", "multiplier": "100", "mark_price": "10.65",
+                  "market_value": "21300", "unrealized_pnl": "0"}
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {"snapshot_age_seconds": 10, "connected": True, "quotes": {
+            "IWM261120P00280000": {"price": 4, "mid": None, "ric": "/IWMW202628000.U"}}}  # bid 0: no mid
+        with patch("parse_flex_positions_live.requests.get", return_value=response):
+            reprice([option], [])
+        self.assertEqual(option["market_value"], "21300")
+
     def test_share_class_with_a_space_uses_the_dotted_feed_key(self):
         from parse_flex_positions_live import reprice
         row = {"symbol": "BRK B", "asset_category": "STK", "currency": "USD", "quantity": "10",

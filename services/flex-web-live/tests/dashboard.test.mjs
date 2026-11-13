@@ -430,3 +430,10 @@ test("signals page is public: lists everyone's pending signals and downloads the
   await $.api.sgDownload();
   assert.equal($("sgMsg").textContent, "Downloaded 2 rows. Left out (no LSEG price, or target equals price): t1");
 });
+
+test("a failing price check or sectors file no longer blanks the dashboard", async () => {
+  const $ = await render({ date: "20261106", positions: [position({ market_value: "1100" })], lots: [] }, { status: 500 }, undefined, undefined,
+    { "api/v1/prices/validation": { status: 500 } });
+  assert.equal($("value").textContent, "$1,100");
+  assert.equal($("coverage").textContent, "Live price check unavailable");
+});

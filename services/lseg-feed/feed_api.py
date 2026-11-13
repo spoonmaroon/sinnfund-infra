@@ -127,6 +127,7 @@ class PriceStore:
         self.next_market_open: str | None = None
         self.market_close: str | None = None
         self.session: Any = None  # the worker's open LSEG session, if any
+        self.session_lock = threading.Lock()  # /snapshot holds it while using the session
 
     def set_connection(self, connected: bool, status: str):
         with self.lock:
@@ -237,6 +238,21 @@ class PriceStore:
                 "quotes": {k: v.copy() for k, v in self.quotes.items()},
                 "errors": {self.ric_to_symbol.get(k, k): v.copy() for k, v in self.statuses.items()},
             }
+
+
+def open_session(signon_control: bool) -> Any:
+    """An opened LSEG Platform session. signon_control=True displaces any other session of this login."""
+    import lseg.data as ld
+    session = ld.session.platform.Definition(
+        app_key=os.environ["LSEG_APP_KEY"],
+        grant=ld.session.platform.GrantPassword(username=os.environ["LSEG_USER_ID"],
+                                                password=os.environ["LSEG_PASSWORD"]),
+        signon_control=signon_control,
+    ).get_session()
+    session.open()
+    if str(session.open_state) != "OpenState.Opened":
+        raise RuntimeError("LSEG Platform session did not open")
+    return session
 
 
 RIC_SUFFIX = re.compile(r"\.(N|O|OQ|A|P|K|Z)$")
@@ -356,17 +372,7 @@ def worker(stop: threading.Event, store: PriceStore, *, interval: float = 60.0,
         try:
             import lseg.data as ld
             store.set_connection(False, "connecting")
-            session = ld.session.platform.Definition(
-                app_key=os.environ["LSEG_APP_KEY"],
-                grant=ld.session.platform.GrantPassword(
-                    username=os.environ["LSEG_USER_ID"],
-                    password=os.environ["LSEG_PASSWORD"],
-                ),
-                signon_control=True,
-            ).get_session()
-            session.open()
-            if str(session.open_state) != "OpenState.Opened":
-                raise RuntimeError("LSEG Platform session did not open")
+            session = open_session(signon_control=True)
             ld.session.set_default(session)
             store.session = session  # /snapshot reuses it: the login allows one session
 
@@ -437,7 +443,8 @@ def worker(stop: threading.Event, store: PriceStore, *, interval: float = 60.0,
                     stop.wait(min(delay, remaining))
                 delay = min(delay * 2, 120.0)
         finally:
-            store.session = None
+            with store.session_lock:  # wait for a /snapshot using this session to finish
+                store.session = None
             if stream is not None:
                 try:
                     stream.close()
@@ -492,8 +499,6 @@ def make_app(symbols: dict[str, str], interval: float = 60.0, *,
         manual_refresh.set()
         return {"queued": True, "message": "One-time off-hours refresh requested"}
 
-    snapshot_lock = threading.Lock()
-
     @app.get("/snapshot")
     def snapshot(request: Request, symbols: str = Query(..., description="Comma-separated RICs or US tickers")):
         """One-off delayed prices for any symbols (signal pricing). Uses the streaming session when open;
@@ -503,21 +508,14 @@ def make_app(symbols: dict[str, str], interval: float = 60.0, *,
         requested = sorted({s.strip() for s in symbols.split(",") if s.strip()})
         if not requested or len(requested) > 500 or not all(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.]{0,19}", s) for s in requested):
             raise HTTPException(status_code=422, detail="1-500 symbols of letters, digits and dots")
-        with snapshot_lock:
+        if not store.session_lock.acquire(timeout=60):  # a stalled snapshot must not queue callers forever
+            raise HTTPException(status_code=503, detail="LSEG snapshot busy")
+        try:
             session = store.session
             own = None
             try:
                 if session is None:
-                    import lseg.data as ld
-                    own = session = ld.session.platform.Definition(
-                        app_key=os.environ["LSEG_APP_KEY"],
-                        grant=ld.session.platform.GrantPassword(username=os.environ["LSEG_USER_ID"],
-                                                                password=os.environ["LSEG_PASSWORD"]),
-                        signon_control=False,
-                    ).get_session()
-                    own.open()
-                    if str(own.open_state) != "OpenState.Opened":
-                        raise RuntimeError("LSEG Platform session did not open")
+                    own = session = open_session(signon_control=False)
                 quotes = take_snapshot(session, requested)
             except Exception as exc:
                 LOG.error("Snapshot failed (%s)", type(exc).__name__)
@@ -528,6 +526,8 @@ def make_app(symbols: dict[str, str], interval: float = 60.0, *,
                         own.close()
                     except Exception:
                         pass
+        finally:
+            store.session_lock.release()
         return {"source": "lseg", "delayed": True, "at": utc_now(), "quotes": quotes,
                 "missing": [s for s in requested if s not in quotes]}
 

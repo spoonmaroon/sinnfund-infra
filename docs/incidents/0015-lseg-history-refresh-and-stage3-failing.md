@@ -20,7 +20,7 @@ History refresh: **unconfirmed** (likely a few failing symbols). Stage 3: wrong 
 
 ## Mitigation and resolution
 - New risk job uses an operator-run LSEG backfill instead (ADR-0030).
-- `deploy/risk-pipeline/fix-risk-pipeline.sh` (staged at `~enoch/fix-risk-pipeline.sh` on sinnfund) prints the refresh failure and failing symbols, installs `lseg-history-api` with the corrected venv path, and runs a refresh. Since 2026-11-08 it also adds the fund's five listed options to the delayed feed (step 5; backs up `lseg-symbols.env` first). Not yet run.
+- `deploy/risk-pipeline/fix-risk-pipeline.sh` (staged at `~enoch/fix-risk-pipeline.sh` on sinnfund) prints the refresh failure and failing symbols, installs `lseg-history-api` with the corrected venv path, and runs a refresh. Since 2026-11-08 it also adds the fund's five listed options to the delayed feed (step 5; backs up `lseg-symbols.env` first). Run on 2026-11-08.
 
 ## Prevention / follow-ups
 - [x] 2026-11-08: ran `sudo bash ~enoch/fix-risk-pipeline.sh`. Failing symbols: CCXI (no longer held) and TCBI.K (Texas Stock Exchange RIC, no daily history); 318 of 320 refreshed.

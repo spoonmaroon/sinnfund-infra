@@ -17,6 +17,7 @@ import re
 import secrets
 import shutil
 import tempfile
+import threading
 import time
 from typing import Literal
 
@@ -26,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 import requests
 
 import paper_signals
+from signal_weights import signal_targets
 
 
 load_dotenv(Path(__file__).with_name("signal-runtime.conf"), override=False)
@@ -571,32 +573,42 @@ def list_signals(owner=Depends(sender)):
         ]
 
 
-# Declared before /{signal_id} so the path is not read as a signal ID.
 def pending_live(records):
     return sorted((record for record in records.values()
                    if record["status"] == "pending" and record["current"]["destination"] == "LIVE"),
                   key=lambda record: record["history"][0]["at"])
 
 
-_lseg_cache = {}  # tuple of tickers -> (fetched monotonic time, prices)
+_lseg_cache = {}  # tuple of tickers -> (fetched monotonic time, prices or the error)
+_lseg_lock = threading.Lock()
 
 
 def lseg_prices(tickers):
     """Delayed LSEG prices keyed by ticker as sent, from the local LSEG feed's /snapshot route.
 
-    Cached for 60 s: the CSV is public, and each snapshot opens an LSEG stream.
+    The CSV is public and each snapshot opens an LSEG stream, so one fetch at a time, and the result
+    (prices or failure) is reused for 60 s. Callers that wait over 35 s for the lock get a TimeoutError.
     """
     key = tuple(sorted(set(tickers)))
-    cached = _lseg_cache.get(key)
-    if cached and time.monotonic() - cached[0] < 60:
-        return cached[1]
-    url = os.getenv("LSEG_FEED_URL", "http://127.0.0.1:8091") + "/snapshot"
-    response = requests.get(url, params={"symbols": ",".join(key)}, timeout=90)
-    response.raise_for_status()
-    prices = {ticker: quote["price"] for ticker, quote in response.json()["quotes"].items()}
-    _lseg_cache.clear()  # keep only the latest set of tickers
-    _lseg_cache[key] = (time.monotonic(), prices)
-    return prices
+    if not _lseg_lock.acquire(timeout=35):
+        raise TimeoutError("LSEG price fetch busy")
+    try:
+        cached = _lseg_cache.get(key)
+        if not cached or time.monotonic() - cached[0] >= 60:
+            try:
+                url = os.getenv("LSEG_FEED_URL", "http://127.0.0.1:8091") + "/snapshot"
+                response = requests.get(url, params={"symbols": ",".join(key)}, timeout=30)
+                response.raise_for_status()
+                result = {ticker: quote["price"] for ticker, quote in response.json()["quotes"].items()}
+            except (requests.RequestException, KeyError, ValueError) as error:
+                result = error
+            _lseg_cache.clear()  # keep only the latest set of tickers
+            cached = _lseg_cache[key] = (time.monotonic(), result)
+    finally:
+        _lseg_lock.release()
+    if isinstance(cached[1], Exception):
+        raise cached[1]
+    return cached[1]
 
 
 # Declared before /{signal_id} so these paths are not read as signal IDs.
@@ -614,8 +626,9 @@ def pending_signals():
 def portfolio_csv():
     """Pending LIVE signals as the Implementation tool's account,symbol,target file (ADR-0034).
 
-    Equal weight: each signal is +1/N if its target is above the LSEG price, -1/N if below. Signals on one
-    stock are added, since the tool keeps only the last row per symbol. Public and read-only: nothing is
+    Equal weight (signal_weights.signal_targets): each signal is +1/N if its target is above the LSEG price,
+    -1/N if below; unpriced signals stay as cash. Signals on one stock are added, since the tool keeps only
+    the last row per symbol. Public and read-only: nothing is
     marked exported; clearing and exporting still need admin/exporter keys.
     """
     account = os.getenv("SIGNAL_LIVE_ACCOUNT")
@@ -625,24 +638,18 @@ def portfolio_csv():
         pending = [record["current"] for record in pending_live(records)]
     try:
         prices = lseg_prices([signal["ticker"] for signal in pending]) if pending else {}
-    except (requests.RequestException, KeyError, ValueError):
+    except (requests.RequestException, KeyError, ValueError, TimeoutError):
         raise HTTPException(503, "LSEG prices unavailable; try again later") from None
-    sides, left_out = {}, []
-    for signal in pending:
-        price = prices.get(signal["ticker"])
-        direction = decision(signal, {"price": str(price)}) if price else None
-        if direction is None:
-            left_out.append(signal["signal_id"])
-            continue
-        sides.setdefault(us_ticker(signal["ticker"]), []).append(1 if direction == "LONG" else -1)
-    count = sum(len(signs) for signs in sides.values())
+    signals = [{"signal_id": s["signal_id"], "symbol": us_ticker(s["ticker"]), "target_price": s["price"]}
+               for s in pending]
+    weights, left_out = signal_targets(signals, {us_ticker(t): p for t, p in prices.items()})
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(["account", "symbol", "target"])
-    writer.writerows([account, symbol, round(sum(signs) / count, 6)] for symbol, signs in sides.items())
+    writer.writerows([account, symbol, round(weight, 6)] for symbol, weight in weights.items())
     return Response(out.getvalue(), media_type="text/csv", headers={
         "Content-Disposition": 'attachment; filename="signals-targets.csv"',
-        "X-Signals-Left-Out": ",".join(left_out)})
+        "X-Signals-Left-Out": ",".join(s["signal_id"] for s in left_out)})
 
 
 @router.get("/{signal_id}")

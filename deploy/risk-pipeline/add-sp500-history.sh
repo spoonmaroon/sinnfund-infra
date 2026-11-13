@@ -13,8 +13,11 @@ HIST=/opt/lseg-history/history_api.py
 UNIVERSE=/opt/lseg-history/universe.env
 
 echo "== 1. Let the history refresh read LSEG_HISTORY_EXTRA"
-if ! grep -q LSEG_HISTORY_EXTRA "$HIST"; then
+# One backup of the untouched file: two patches in the same second would otherwise share a name.
+if ! grep -q LSEG_HISTORY_EXTRA "$HIST" || ! grep -q "from contextlib import closing" "$HIST"; then
   cp -a "$HIST" "$HIST.bak-$(date -u +%Y%m%dT%H%M%SZ)"
+fi
+if ! grep -q LSEG_HISTORY_EXTRA "$HIST"; then
   python3 - "$HIST" <<'EOF'
 import sys
 path = sys.argv[1]
@@ -31,7 +34,6 @@ fi
 # history_api.py opened a SQLite connection per request and never closed it ("with
 # connect()" only commits), so ~1,000 requests exhausted file handles (Errno 24).
 if ! grep -q "from contextlib import closing" "$HIST"; then
-  cp -a "$HIST" "$HIST.bak-$(date -u +%Y%m%dT%H%M%SZ)"
   python3 - "$HIST" <<'EOF'
 import sys
 path = sys.argv[1]
@@ -48,8 +50,12 @@ printf '[Service]\nEnvironmentFile=-%s\n' "$UNIVERSE" > /etc/systemd/system/lseg
 systemctl daemon-reload
 
 echo "== 2. Write the S&P 500 constituents (LSEG chain 0#.SPX)"
+# A private folder: lseg.data reads lseg-data.config.json from the working folder and HOME, and a
+# planted one in /tmp could point this root login at someone else's server.
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 ( set -a; . /opt/lseg-feed/.env; set +a
-  cd /tmp && HOME=/tmp /opt/lseg-history/venv/bin/python "$HERE/sp500_universe.py" "$UNIVERSE" )
+  cd "$WORK" && HOME="$WORK" /opt/lseg-history/venv/bin/python "$HERE/sp500_universe.py" "$UNIVERSE" )
 
 echo "== 3. Fetch ~3 years of daily closes for the new names (about 15 minutes)"
 systemctl start lseg-history-refresh.service || echo "refresh reported failures; see journalctl -u lseg-history-refresh"

@@ -48,7 +48,7 @@ So **limit orders and good-till-cancelled (GTC) orders are not supported**. Two 
 1. `GET /prediction/signals/portfolio.csv` (public, no key) returns pending LIVE signals as `account,symbol,target`:
    - `account` is the server's `SIGNAL_LIVE_ACCOUNT`.
    - `symbol` is the plain US ticker (`ZBH.N` → `ZBH`, via `us_ticker`).
-   - `target` is **equal weight**: each priced signal gets `±1/N`, long when its target price is above the current price, short when below, so gross is 100% of the account. Two signals on one stock are added together, because the tool would otherwise keep only the last row.
+   - `target` is **equal weight**: each signal gets `±1/N` with N = **all** pending signals, long when its target price is above the current price, short when below. A signal that cannot be priced stays as cash, so missing prices never enlarge the others (gross is at most 100%). `signal_weights.signal_targets` is the one implementation, shared with `stage_signals.py`. Two signals on one stock are added together, because the tool would otherwise keep only the last row.
    - The current price is an **LSEG delayed price** from a short stream opened by the feed's `/snapshot` (the login has no REST snapshot entitlement), cached 60 s, so there is no Twelve Data 8-per-minute limit.
    - Signals that cannot be priced, or whose target equals the price, are left out and listed in the `X-Signals-Left-Out` response header.
    - It is read-only: nothing is marked exported.
@@ -58,7 +58,8 @@ So **limit orders and good-till-cancelled (GTC) orders are not supported**. Two 
 4. **Long/short is decided at trade time, from TWS live prices** (added 2026-11-13). LSEG is 15 minutes delayed; on Nov 13 only 1 of 83 signals had a target within 1% of its price, so the delay rarely flips a side, but the trade itself should use the price it trades at. `services/prediction-api/tools/stage_signals.py` runs where TWS is open:
    - reads the pending signals from `GET /signals/pending` (each row carries `symbol`, the plain ticker);
    - prices each symbol live from TWS (bid/ask midpoint, else last trade; never the previous close). No live price means the signal is left out and listed;
-   - decides long or short then, at `±gross/N` per signal (default gross 1.0), adding signals on one stock;
+   - decides long or short then, at `±gross/N` per signal over all N signals (default gross 1.0, allowed (0, 1]), adding signals on one stock; an unpriced signal stays cash;
+   - trades only US-dollar stock positions, on the exact contract it priced (a same-ticker listing elsewhere is a different holding);
    - rebalances against the account's NetLiquidation and holdings. By default it trades only signal symbols and leaves other holdings alone; `--close-others` closes them too, as the class tool does;
    - prints the plan, saves it to `signal_plan_<time>.csv`, asks for `yes`, and stages every order with `transmit=False`;
    - chooses the order type the class tool cannot: `--order-type ADAPTIVE|MKT|LMT|MIDPRICE`, `--tif DAY|GTC`, `--limit-bps` (a limit that far past the live price).

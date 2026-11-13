@@ -15,7 +15,7 @@ The revamped dashboard existed only as a local preview (`work/portfolio-ui-previ
 
 ## Decision
 
-Move the page into `services/flex-web-live/ui/` (`index.html`, `app.css`, `app.js`) and serve it at `/` with assets under `/static/`. The UI calls the API with relative URLs so it works under both `/live/` and `/close/`. Add `/api/v1/report` (all positions and lots) and `/api/v1/sectors`. Keep the Content Security Policy to `'self'` scripts and styles, allowing only `style=""` attributes (`style-src-attr 'unsafe-inline'`) for bar widths. Every row shows both the statement close and the delayed price.
+Move the page into `services/flex-web-live/ui/` (`index.html`, `app.css`, `app.js`) and serve it at `/` with assets under `/static/`. The UI calls the API with relative URLs, so it works under any path prefix (originally both `/live/` and `/close/`; `/close/` is now a separate service, see the amendment). Add `/api/v1/report` (all positions and lots) and `/api/v1/sectors`. Keep the Content Security Policy to `'self'` scripts and styles, allowing only `style=""` attributes (`style-src-attr 'unsafe-inline'`) for bar widths. Every row shows both the statement close and the delayed price.
 
 ## Rationale
 

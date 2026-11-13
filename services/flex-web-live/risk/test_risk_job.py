@@ -90,6 +90,14 @@ class RiskJobTests(unittest.TestCase):
             self.assertAlmostEqual(before[key], fund[key], delta=1.0)  # returns stored to 6 decimals
         self.assertEqual(data["exposure"]["U2"], {"BBB": -1000.0})  # -5,000 + ¥400,000 at 0.01
         self.assertEqual(data["fx_to_usd"], {"BBB": 0.01})
+        self.assertEqual(data["last_close"]["AAA"], round(float(PRICES[PRICES.symbol == "AAA"].sort_values("date").close.iloc[-1]), 4))
+
+    def test_non_usd_holdings_use_ibkrs_price_with_ibkrs_rate(self):
+        # LSEG quotes London listings in pence; IBKR's mark and rate share a unit (pounds).
+        report = {**self.report, "positions": [dict(p, mark_price="250") if p["fx_rate_to_base"] == "0.01" else p
+                                               for p in self.report["positions"]]}
+        data = scenario_data(report, PRICES)
+        self.assertEqual((data["last_close"]["BBB"], data["fx_to_usd"]["BBB"]), (250.0, 0.01))
 
 
     def test_one_ticker_spelling_for_ibkr_lseg_and_the_what_if(self):

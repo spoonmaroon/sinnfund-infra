@@ -131,5 +131,14 @@ class PositionChangeTests(unittest.TestCase):
         self.assertEqual(ytd_result["pnl"], 130.0)  # 1,630 - 1,000 - 500
         self.assertEqual(ytd_result["pnl_pct"], 10.4)  # 130 / (1,000 + 500/2)
 
+    def test_ytd_counts_a_deposit_once_when_its_day_is_downloaded_again(self):
+        ytd = self.root / "ytd"
+        write_day(ytd, "20251231", {"AAA": (10, 10)}, cash="900", folder="2026/start.xml.gz")
+        write_day(ytd, "20261008", {"AAA": (10, 10)}, folder="2026/flows.xml.gz")
+        write_day(self.root, "20261102", {"AAA": (10, 10)}, cash="1400", deposit="500")
+        # flex-ingest --date 20261103 --force stores the 20261102 statement again under 20261103.
+        write_day(self.root, "20261102", {"AAA": (10, 10)}, cash="1400", deposit="500", folder="20261103/main.xml.gz")
+        self.assertEqual(self.get("/api/v1/ytd")["net_flows"], 500.0)
+
 if __name__ == "__main__":
     unittest.main()

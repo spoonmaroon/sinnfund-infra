@@ -7,6 +7,9 @@ Saves two raw Flex statements (same token and query as flex-ingest):
                       archive, whose CashReport gives deposits, withdrawals and transfers
 flex-web-live adds the flows in the daily archives from then on.
 
+Needs flex-ingest's is_partial(), which is on the unmerged ingest branch (claude/serene-tesla-3decfb)
+and already deployed on the server; with main's flex-ingest it stops after one Flex request.
+
 Run as the ingest user with its venv (it reads /opt/flex-ingest/.env):
     sudo -u svc-flex /opt/flex-ingest/venv/bin/python pull_year_start.py 2026 20261008
 """

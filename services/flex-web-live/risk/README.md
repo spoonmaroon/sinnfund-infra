@@ -107,6 +107,11 @@ Since 2026-11-08 the job reads the **LSEG history service** on `127.0.0.1:8092`
 symbols in all.
 
 The operator backfill below (ADR-0030) is now the fallback for those listings.
+Those symbols only move when someone reruns it: the job drops any symbol whose last
+close is over 10 days older than the newest date, so from about ten days after a
+backfill they leave VaR/ES (about 8% of gross on 2026-11-13). Rerun the backfill
+weekly, or add their RICs to the history service's `LSEG_HISTORY_EXTRA`
+(`/opt/lseg-history/universe.env`) so the daily refresh carries them.
 Interim (ADR-0030): an operator's own LSEG cloud login, run on their machine.
 Close Refinitiv Workspace first if it uses the same login (one session per login).
 

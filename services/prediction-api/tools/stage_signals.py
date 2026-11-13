@@ -10,8 +10,8 @@ Run on the machine with TWS (or IB Gateway) open. Python 3.11 + ib_insync (pip i
 Steps (ADR-0034):
  1. Pending LIVE signals from the public signal API (or --signals FILE, the same JSON).
  2. Live price per symbol from TWS: bid/ask midpoint, else last trade. No price -> left out and listed.
- 3. Long if the signal's target is above the live price, short if below; each signal is +-gross/N,
-    signals on one stock are added.
+ 3. Long if the signal's target is above the live price, short if below; each signal is +-gross/N over
+    all N signals (an unpriced signal's share stays cash); signals on one stock are added.
  4. Rebalance against the account's current holdings and NetLiquidation. By default only signal symbols
     are traded and other holdings are left alone; --close-others also closes everything else
     (what the class Implementation tool does).
@@ -24,28 +24,19 @@ import argparse
 import csv
 import json
 import math
+from pathlib import Path
 import sys
 import time
 import urllib.request
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # signal_weights.py, shared with the website CSV
+from signal_weights import signal_targets  # noqa: E402
 
 PENDING_URL = "https://sinnfund.jkoh.dev/prediction/signals/pending"
 ORDER_TYPES = ("ADAPTIVE", "MKT", "LMT", "MIDPRICE")
 
 
 # ---------- decisions (pure; tested without TWS) ----------
-
-def signal_targets(signals: list[dict], prices: dict[str, float], gross: float = 1.0):
-    """Signed target weight per symbol, and the signals left out (no price, or target equals price)."""
-    sides, left_out = {}, []
-    for s in signals:
-        price = prices.get(s["symbol"])
-        if not price or s["target_price"] == price:
-            left_out.append(s)
-            continue
-        sides.setdefault(s["symbol"], []).append(1 if s["target_price"] > price else -1)
-    count = sum(len(signs) for signs in sides.values())
-    return {symbol: gross * sum(signs) / count for symbol, signs in sides.items()}, left_out
-
 
 def plan_trades(targets: dict[str, float], held: dict[str, float], nlv: float,
                 prices: dict[str, float], close_others: bool = False) -> list[dict]:
@@ -80,7 +71,8 @@ def order_fields(trade: dict, order_type: str, tif: str, limit_bps: float, accou
 
 
 def live_price(ticker) -> float | None:
-    """Bid/ask midpoint, else last trade. Never the previous close: that is not live."""
+    """Bid/ask midpoint, else last trade. Never the close field. Before the open with no quotes, the last
+    trade is the previous session's: run during market hours for live prices."""
     def ok(x):
         return x is not None and not math.isnan(x) and x > 0
     if ok(ticker.bid) and ok(ticker.ask):
@@ -98,7 +90,8 @@ def fetch_signals(path: str | None) -> list[dict]:
         return json.load(response)
 
 
-def tws_prices(ib, symbols: list[str], wait: float) -> dict[str, float]:
+def tws_prices(ib, symbols: list[str], wait: float):
+    """Live prices and the qualified US contracts they came from (orders go on the same contract)."""
     from ib_insync import Stock
     contracts = {c.symbol: c for c in ib.qualifyContracts(*[Stock(s, "SMART", "USD") for s in symbols])}
     ib.reqMarketDataType(1)  # live; with no subscription IB sends nothing and the symbol is left out
@@ -109,7 +102,7 @@ def tws_prices(ib, symbols: list[str], wait: float) -> dict[str, float]:
     prices = {s: p for s, t in tickers.items() if (p := live_price(t))}
     for c in contracts.values():
         ib.cancelMktData(c)
-    return prices
+    return prices, contracts
 
 
 def account_state(ib, account: str) -> tuple[float, dict[str, float]]:
@@ -117,8 +110,9 @@ def account_state(ib, account: str) -> tuple[float, dict[str, float]]:
                 if v.tag == "NetLiquidation" and v.currency in ("USD", "BASE")), None)
     if not nlv:
         raise SystemExit(f"No NetLiquidation for {account}: is it an account this TWS login manages?")
+    # US-dollar stocks only: a same-ticker listing elsewhere (SAP on Xetra) is a different holding.
     held = {p.contract.symbol: float(p.position) for p in ib.positions(account)
-            if p.contract.secType == "STK" and p.position}
+            if p.contract.secType == "STK" and p.contract.currency == "USD" and p.position}
     return nlv, held
 
 
@@ -144,19 +138,21 @@ def main(argv=None) -> int:
     parser.add_argument("--price-wait", type=float, default=8.0, help="seconds to wait for live quotes")
     parser.add_argument("--dry-run", action="store_true", help="print and save the plan; stage nothing")
     args = parser.parse_args(argv)
+    if not 0 < args.gross <= 1:
+        parser.error("--gross must be above 0 and at most 1")
 
     signals = fetch_signals(args.signals)
     if not signals:
         print("No pending LIVE signals.")
         return 0
 
-    from ib_insync import IB, Order, Stock, TagValue
+    from ib_insync import IB, Order, TagValue
     ib = IB()
     ib.connect(args.host, args.port, clientId=args.client)
     try:
         nlv, held = account_state(ib, args.account)
         symbols = sorted({s["symbol"] for s in signals} | (set(held) if args.close_others else set()))
-        prices = tws_prices(ib, symbols, args.price_wait)
+        prices, contracts = tws_prices(ib, symbols, args.price_wait)
         targets, left_out = signal_targets(signals, prices, args.gross)
         trades = plan_trades(targets, held, nlv, prices, args.close_others)
 
@@ -180,7 +176,7 @@ def main(argv=None) -> int:
         for t in trades:
             fields = order_fields(t, args.order_type, args.tif, args.limit_bps, args.account)
             fields["algoParams"] = [TagValue(k, v) for k, v in fields.get("algoParams", [])]
-            ib.placeOrder(Stock(t["symbol"], "SMART", "USD"), Order(**fields))
+            ib.placeOrder(contracts[t["symbol"]], Order(**fields))
         ib.sleep(1)
         print(f"Staged {len(trades)} orders as Not Transmitted. Review and transmit them in TWS.")
         return 0

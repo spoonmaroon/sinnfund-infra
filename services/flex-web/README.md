@@ -74,7 +74,7 @@ The application's endpoints are:
 systemctl status flex-web.service
 
 # Restart after code changes
-sudo systemctl restart flex-web.service
+sudo -n /usr/bin/systemctl restart flex-web.service
 
 # View recent logs
 journalctl -u flex-web.service -n 50

@@ -202,13 +202,16 @@ def scenario_data(report: dict, prices: pd.DataFrame) -> dict:
     for (account, symbol), value in exposure.items():
         book[account][symbol] = round(value, 2)
     last = prices.sort_values("date").groupby("symbol")["close"].last()
-    # Closes are in the listing's currency; IBKR's rate for held symbols turns a trade into USD.
-    fx = {key(r.get("symbol")): number(r.get("fx_rate_to_base"))
-          for r in report.get("positions", []) if number(r.get("fx_rate_to_base")) not in (0.0, 1.0)}
+    # Non-USD holdings: price and rate both from the IBKR row, so they share a unit. LSEG quotes
+    # London listings in pence while IBKR's rate is per pound, which would value trades 100x too high.
+    foreign = {key(r.get("symbol")): r for r in report.get("positions", [])
+               if number(r.get("fx_rate_to_base")) not in (0.0, 1.0)}
+    fx = {s: number(r.get("fx_rate_to_base")) for s, r in foreign.items()}
     return {
         "as_of": report.get("date"), "market": MARKET, "dates": [str(d) for d in returns.index],
         "returns": {s: [round(float(x), 6) for x in returns[s]] for s in returns.columns},
-        "last_close": {s: round(float(last[s]), 4) for s in returns.columns},
+        "last_close": {s: round(number(foreign.get(s, {}).get("mark_price")) or float(last[s]), 4)
+                       for s in returns.columns},
         "fx_to_usd": {s: rate for s, rate in fx.items() if s in returns.columns},
         "exposure": book, "nlv": {a: round(v, 2) for a, v in nlv.items()},
     }

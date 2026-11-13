@@ -189,7 +189,7 @@ class LedgerTest(unittest.TestCase):
             response=ledger.portfolio_csv()
         self.assertEqual(sorted(lseg.call_args.args[0]),['KO','NOPE','ZBH','ZBH.N','ZBRA.OQ'])
         rows=list(csv.reader(io.StringIO(response.body.decode())))
-        self.assertEqual(rows,[['account','symbol','target'],['TEST','ZBH','0.666667'],['TEST','ZBRA','-0.333333']])
+        self.assertEqual(rows,[['account','symbol','target'],['TEST','ZBH','0.4'],['TEST','ZBRA','-0.2']])
         self.assertEqual(response.headers['X-Signals-Left-Out'],'d,e')
         self.assertEqual([r['status'] for r in ledger.list_signals(owner='max')],['pending','pending'])
         with patch.object(ledger,'lseg_prices',side_effect=ledger.requests.ConnectionError()):
@@ -210,6 +210,12 @@ class LedgerTest(unittest.TestCase):
             with patch.object(ledger.time,'monotonic',return_value=ledger.time.monotonic()+61):
                 ledger.lseg_prices(['ZBH.N','NOPE'])
             self.assertEqual(get.call_count,2)
+        ledger._lseg_cache.clear()
+        with patch.object(ledger.requests,'get',side_effect=ledger.requests.ConnectionError()) as get:
+            for _ in range(3):  # a failure is reused too, so a burst of downloads makes one feed call
+                with self.assertRaises(ledger.requests.ConnectionError):
+                    ledger.lseg_prices(['ZBH.N'])
+            self.assertEqual(get.call_count,1)
         ledger._lseg_cache.clear()
 
     def test_freshness_requires_current_fetch_and_recent_market_timestamp(self):

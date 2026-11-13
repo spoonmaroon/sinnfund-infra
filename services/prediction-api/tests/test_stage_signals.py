@@ -25,9 +25,11 @@ PRICES = {"ZBH": 100.0, "ZBRA": 100.0, "KO": 100.0, "MSFT": 400.0}
 class DecisionTest(unittest.TestCase):
     def test_targets_are_equal_weight_netted_and_report_what_was_left_out(self):
         targets, left = stage.signal_targets(SIGNALS, PRICES)
-        self.assertEqual(targets, {"ZBH": 2 / 3, "ZBRA": -1 / 3})
+        self.assertEqual(targets, {"ZBH": 2 / 5, "ZBRA": -1 / 5})  # N = all 5: unpriced shares stay cash
         self.assertEqual([s["signal_id"] for s in left], ["d", "e"])
-        self.assertEqual(stage.signal_targets(SIGNALS, PRICES, gross=0.5)[0]["ZBRA"], -1 / 6)
+        self.assertEqual(stage.signal_targets(SIGNALS, PRICES, gross=0.5)[0]["ZBRA"], -1 / 10)
+        one_priced, _ = stage.signal_targets(SIGNALS[:1] + [dict(s, symbol="NOPE") for s in SIGNALS[1:]], PRICES)
+        self.assertEqual(one_priced, {"ZBH": 1 / 5})  # never 100% in the one name that priced
 
     def test_rebalance_trades_only_signal_names_unless_asked_to_close_others(self):
         targets = {"ZBH": 0.5, "ZBRA": -0.5}
@@ -76,9 +78,10 @@ class FakeIB:
     def accountSummary(self, account):
         return [types.SimpleNamespace(tag="NetLiquidation", currency="USD", value="1000000")]
     def positions(self, account):
-        stock = lambda s: types.SimpleNamespace(symbol=s, secType="STK")
+        stock = lambda s, cur="USD": types.SimpleNamespace(symbol=s, secType="STK", currency=cur)
         return [types.SimpleNamespace(contract=stock("ZBH"), position=1000.0),
-                types.SimpleNamespace(contract=stock("MSFT"), position=30.0)]
+                types.SimpleNamespace(contract=stock("MSFT"), position=30.0),
+                types.SimpleNamespace(contract=stock("ZBRA", "EUR"), position=50.0)]  # not the US ZBRA
     def placeOrder(self, contract, order):
         self.placed.append((contract.symbol, order))
 
@@ -114,7 +117,12 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(len(plans), 1)
         self.assertEqual([(s, o.action, o.totalQuantity, o.orderType, o.tif, o.transmit) for s, o in placed],
-                         [("ZBH", "BUY", 5667, "LMT", "GTC", False), ("ZBRA", "SELL", 3333, "LMT", "GTC", False)])
+                         [("ZBH", "BUY", 3000, "LMT", "GTC", False), ("ZBRA", "SELL", 2000, "LMT", "GTC", False)])
+
+    def test_gross_outside_zero_to_one_is_refused(self):
+        for bad in ["-1", "0", "1.5"]:
+            with self.assertRaises(SystemExit), patch("sys.stderr"):
+                stage.main(["--account", "DU1", "--gross", bad])
 
     def test_dry_run_and_no_answer_stage_nothing(self):
         self.assertEqual(self.run_main("--dry-run")[1], [])

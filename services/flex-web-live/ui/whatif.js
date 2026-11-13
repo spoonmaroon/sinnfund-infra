@@ -166,11 +166,12 @@ function wiRun() {
 }
 
 wiSetRows([]);
-// Every account with a statement, by fund-sheet name where there is one, otherwise by number.
-Promise.all([fetch("api/v1/portfolio").then((r) => r.json()), namesLoaded]).then(([p]) => {
-  const labels = (p.accounts || []).map((a) => ACCOUNT_NAMES[a.id] || a.id).sort((x, y) => x.localeCompare(y));
+// Account suggestions: every account with a statement, by fund-sheet name where there is one.
+// app.js calls this once holdings and names are loaded.
+function wiFillAccounts() {
+  const labels = accountSummaries.map((a) => ACCOUNT_NAMES[a.id] || a.id).sort((x, y) => x.localeCompare(y));
   $("wiAccounts").innerHTML = labels.map((label) => `<option value="${esc(label)}"></option>`).join("");
-}).catch(() => {});
+}
 $("wiRun").addEventListener("click", wiRun);
 $("wiAdd").addEventListener("click", () => { $("wiRows").appendChild(wiRow()); wiRenumber(); });
 $("wiClear").addEventListener("click", () => { wiSetRows([]); $("wiResult").innerHTML = ""; });

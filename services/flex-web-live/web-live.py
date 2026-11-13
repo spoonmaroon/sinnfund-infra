@@ -168,11 +168,9 @@ def load_ytd() -> dict:
     positions, _, cash = read_archives([folder / "start.xml.gz"])
     start = sum(number(c) for c in cash.values()) + sum(number(p["market_value"]) * fx(p) for p in positions)
     flows_until = re.search(rb'toDate=["\'](\d{8})', gzip.open(folder / "flows.xml.gz").read(2000))[1].decode()
-    flows = read_flows([folder / "flows.xml.gz"])
     days = sorted(p.name for p in ARCHIVE_DIR.iterdir() if p.is_dir() and re.fullmatch(r"\d{8}", p.name) and p.name > flows_until)
-    for day in days:
-        for account, amount in read_flows(archive_files(day)).items():
-            flows[account] = flows.get(account, 0.0) + amount
+    # One read: a day downloaded twice repeats a statement, which statements() skips.
+    flows = read_flows([folder / "flows.xml.gz", *(f for day in days for f in archive_files(day))])
     return {"available": True, "year": year, "start_nlv": float(start), "net_flows": sum(flows.values()),
             "flows_through": days[-1] if days else flows_until, "sp500": sp500_ytd(year)}
 
