@@ -241,7 +241,8 @@ def price_validation_summary(report: dict) -> dict:
         ordered = sorted(values)
         return round(ordered[round((len(ordered) - 1) * fraction)], 4)
 
-    value_change = sum(
+    # Decimal() +: with no LSEG-updated rows (feed just restarted) sum() is int 0, which as_float rejects.
+    value_change = Decimal() + sum(
         (
             number(row.get("delayed_market_value"))
             - number(row.get("close_market_value"))

@@ -1,6 +1,6 @@
 import unittest
 
-from portfolio_api import add_day_change, carry_forward, history_series, portfolio_summary
+from portfolio_api import add_day_change, carry_forward, history_series, portfolio_summary, price_validation_summary
 
 
 def row(**fields):
@@ -14,6 +14,11 @@ PREVIOUS = [{"account_id": "U1", "conid": "1", "mark_price": "100"}]
 
 
 class DayChangeTests(unittest.TestCase):
+    def test_price_validation_with_no_lseg_prices_is_zero_not_a_crash(self):
+        # Right after an LSEG feed restart no row is LSEG-updated; this used to 500 the dashboard.
+        summary = price_validation_summary({"positions": [row(**{"psuedo-live updated": "0"})]})
+        self.assertEqual((summary["updated_positions"], summary["aggregate_value_change"]), (0, 0.0))
+
     def test_market_closed_shows_close_vs_previous_close(self):
         # Quote is from the same session as the statement (e.g. a weekend).
         position = row(delayed_mark_price="110.5", quote_last_event_at="2026-11-06T21:16:37+00:00")
