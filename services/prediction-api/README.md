@@ -45,11 +45,18 @@ signals, or `--ledger /path/to/ledger.csv` to inspect a different ledger.
 
 ### Download the pending signals (any sender key)
 
-`GET /signals/portfolio.csv` returns every sender's pending LIVE signals, one row each with weight 1/N
-(`analyst,signal_id,symbol,target_price,sent_at,weight`; RICs shown as plain tickers). It is read-only:
-no quotes are fetched and nothing is marked exported, so it is not limited by Twelve Data. Long or short is
-left out because the export decides it from a fresh quote. Exporter-only keys are refused; use a sender or
-admin key. See QUICKSTART step 4 for the command.
+- `GET /signals/pending` lists every sender's pending LIVE signals as JSON (`analyst, signal_id, ticker,
+  target_price, sent_at`). The dashboard's Signals tab reads it with the visitor's own key.
+- `GET /signals/portfolio.csv` returns them as the class Implementation tool's trade sheet,
+  `account,symbol,target` (ADR-0034). `account` is `SIGNAL_LIVE_ACCOUNT`, `symbol` the plain ticker, and
+  `target` is equal weight: `+1/N` when the target price is above the current LSEG delayed price, `-1/N`
+  when below, so gross is 100% of the account. Two signals on one stock are added (the tool keeps only the
+  last row per symbol). Prices come from the LSEG feed's local `/snapshot` (`LSEG_FEED_URL`, default
+  `http://127.0.0.1:8091`), so there is no Twelve Data limit. Signals without a price, or with target equal
+  to price, are left out and named in the `X-Signals-Left-Out` header. LSEG unreachable returns 503.
+- Both are read-only (nothing is marked exported). Exporter-only keys are refused; use a sender or admin key.
+- The tool rebalances the whole account: it **closes anything the account holds that is not in the CSV**.
+  Check a file with `tools/check_trade_csv.py` (runs it through the tool's own code with a fake broker).
 
 ### Export a CSV on the box
 

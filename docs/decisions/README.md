@@ -39,6 +39,7 @@ Architecture decisions for the SINN Fund platform, from portfolio reporting and 
 | [ADR-0031](./0031-handle-partial-flex-statements.md) | Retry partial Flex statements and carry excluded accounts forward | 2026-11-08 | Accepted — deployed |
 | [ADR-0032](./0032-files-now-database-when-triggered.md) | Keep portfolio data in files; add Postgres/ClickHouse at named triggers | 2026-11-08 | Accepted — no database yet |
 | [ADR-0033](./0033-pitch-system-linked-to-trades.md) | Build our own pitch system: analysts submit, signed in, linked to both funds' IBKR trades | 2026-11-11 | Proposed — open questions on sign-in and visibility |
+| [ADR-0034](./0034-trade-csv-for-implementation-tool.md) | Signals become an `account,symbol,target` CSV the class Implementation tool runs; how it places orders | 2026-11-13 | Accepted |
 
 ## How to maintain these records
 

@@ -18,6 +18,7 @@ live for debugging and as a fallback; it is not linked from the landing page.
 | Sectors | Gross exposure, net value, day change and unrealized P&L per sector; sortable columns; holdings per sector. |
 | Heatmap | Every holding as a tile grouped by sector (squarified treemap, `ui/heatmap.js`): area is gross value with the same stock combined across accounts, colour is the latest price move (full red or green at ±3%, grey when there is no move), `·S` marks a net short; hover for value, day P&L and account count. |
 | What if | Basket of proposed trades (typed, pasted from a spreadsheet or a CSV) and their effect on fund and account risk; see `risk/README.md`. |
+| Signals | Every pending LIVE signal and who sent it, read from the signal API with the visitor's own sender key (kept in the browser tab only; `/live/` has no login). **Download CSV for the trade tool** saves `account,symbol,target` from `/prediction/signals/portfolio.csv` (ADR-0034). Read-only. |
 | Risk management | 1-day VaR 95/99%, expected shortfall 97.5%, S&P 500 sensitivity, account risk, top risk contributors, risk by sector, worst historical days, model exclusions. See [`risk/README.md`](risk/README.md). |
 
 Column headers sort on the first click, reverse on the second and return to the

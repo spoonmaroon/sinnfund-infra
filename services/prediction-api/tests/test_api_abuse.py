@@ -39,7 +39,7 @@ class ApiAbuseTest(unittest.TestCase):
              'PAPER_QUEUE_DIR':str(cls.root/'paper'),'PAPER_SUBMIT_TOKEN':'test-submit-'*5,
              'PAPER_WORKER_TOKEN':'test-worker-'*5,
              'PYTHONPATH':str(Path(__file__).resolve().parents[1])}
-        code=f"import app,uvicorn,signal_ledger,time; app.get_price=lambda ticker:100; signal_ledger.fetch_quotes=lambda symbols: {{s:{{'price':'100','source':'test','timestamp':time.time(),'fetched_at':time.time()}} for s in symbols}}; uvicorn.run(app.app,host='127.0.0.1',port={port},access_log=False,log_level='critical')"
+        code=f"import app,uvicorn,signal_ledger,time; app.get_price=lambda ticker:100; signal_ledger.lseg_prices=lambda tickers: {{t:100 for t in tickers}}; signal_ledger.fetch_quotes=lambda symbols: {{s:{{'price':'100','source':'test','timestamp':time.time(),'fetched_at':time.time()}} for s in symbols}}; uvicorn.run(app.app,host='127.0.0.1',port={port},access_log=False,log_level='critical')"
         cls.server=subprocess.Popen([sys.executable,'-c',code],env=env,cwd=cls.root,
                                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         def stop():
@@ -116,17 +116,23 @@ class ApiAbuseTest(unittest.TestCase):
 
     def test_every_sender_downloads_everyones_pending_live_signals(self):
         self.assertEqual(self.request('/signals',dict(self.signal('csv-alice'),ticker='ZBH.N'),'alice')[0],202)
-        self.assertEqual(self.request('/signals',self.signal('csv-bob'),'bob')[0],202)
+        self.assertEqual(self.request('/signals',dict(self.signal('csv-bob'),ticker='ZBRA',price=90),'bob')[0],202)
         for owner in ['alice','bob','admin']:
+            code,body=self.request('/signals/pending',owner=owner)
+            self.assertEqual(code,200)
+            listed={row['signal_id']:row['analyst'] for row in json.loads(body)}
+            self.assertEqual((listed['csv-alice'],listed['csv-bob']),('alice','bob'))
             code,body=self.request('/signals/portfolio.csv',owner=owner)
             self.assertEqual(code,200)
-            rows={row[1]:row for row in csv.reader(io.StringIO(body.decode()))}
-            self.assertEqual(rows['signal_id'],['analyst','signal_id','symbol','target_price','sent_at','weight'])
-            self.assertEqual(rows['csv-alice'][:4],['alice','csv-alice','ZBH','110.0'])
-            self.assertEqual(rows['csv-bob'][0],'bob')
-            self.assertAlmostEqual(sum(float(row[5]) for row in rows.values() if row[0]!='analyst'),1)
-        for owner in [None,'exporter']:
-            self.assertEqual(self.request('/signals/portfolio.csv',owner=owner)[0],401)
+            rows=list(csv.reader(io.StringIO(body.decode())))
+            self.assertEqual(rows[0],['account','symbol','target'])
+            targets={symbol:float(target) for account,symbol,target in rows[1:]}
+            self.assertGreater(targets['ZBH'],0)  # target 110 above the stubbed LSEG price of 100
+            self.assertLess(targets['ZBRA'],0)
+            self.assertLessEqual(sum(abs(t) for t in targets.values()),1+1e-6)
+        for route in ['/signals/pending','/signals/portfolio.csv']:
+            for owner in [None,'exporter']:
+                self.assertEqual(self.request(route,owner=owner)[0],401)
         self.assertEqual(json.loads(self.request('/signals/csv-alice')[1])['status'],'pending')  # download changes nothing
 
     def test_nonfinite_numbers_are_client_errors_not_server_errors(self):

@@ -108,14 +108,14 @@ See one signal, including its current revision and audit history:
 python3 "$CLIENT" get example-1
 ```
 
-Download every analyst's pending LIVE signals as an equal-weight CSV (any sender key works; nothing is exported or changed):
+See every analyst's pending LIVE signals on the dashboard's **Signals** tab (https://sinnfund.jkoh.dev/live/#signals, paste your sender key), or download the trade sheet the class Implementation tool runs:
 
 ```bash
 curl -fsS -H "Authorization: Bearer $(cat ~/.config/sinnfund/signal-sender.key)" \
-  https://sinnfund.jkoh.dev/prediction/signals/portfolio.csv -o ~/Downloads/signals-portfolio.csv
+  https://sinnfund.jkoh.dev/prediction/signals/portfolio.csv -o ~/Downloads/signals-targets.csv
 ```
 
-Columns: `analyst,signal_id,symbol,target_price,sent_at,weight`. Each weight is 1/N. Long or short is decided only at export, from a fresh quote against `target_price`.
+Columns: `account,symbol,target`. Each signal is `±1/N`: long if its target is above the LSEG price, short if below. Nothing is exported or changed. The tool closes anything else the account holds, so read ADR-0034 before running it.
 
 ## 5. Edit a signal
 

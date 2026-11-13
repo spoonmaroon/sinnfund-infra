@@ -7,7 +7,8 @@ import { readFileSync } from "node:fs";
 const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/heatmap.js", import.meta.url), "utf8")
-  + "\nreturn { positionsCsv, csvCell, wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge, hmSquarify, hmSectors, hmColor, renderHeatmap };";
+  + "\n" + readFileSync(new URL("../ui/signals.js", import.meta.url), "utf8")
+  + "\nreturn { sgLoad, sgDownload, positionsCsv, csvCell, wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge, hmSquarify, hmSectors, hmColor, renderHeatmap };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -41,7 +42,11 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
     },
     window: { scrollTo() {} },
     ResizeObserver: class { observe() {} },
-    fetch: async (url) => ({ ok: url in responses, json: async () => responses[url] }),
+    fetch: async (url, init) => {
+      const body = typeof responses[url] === "function" ? responses[url](init) : responses[url];
+      const status = body?.status ?? (url in responses ? 200 : 404);
+      return { ok: status === 200, status, json: async () => body, text: async () => body.text, headers: { get: (k) => body?.headers?.[k] ?? null } };
+    },
     console,
   };
   byId.api = new Function(...Object.keys(context), APP)(...Object.values(context));
@@ -403,4 +408,30 @@ test("positions CSV holds every holding, ignoring filters, with names and quoted
   assert.deepEqual(rows.map((r) => [r[0], r[2], r[3], r[11]]), [["AAA", "U9000001", "Lifeboat", "500"], ["BBB", "U9000002", "Tier One Acct", "-900"]]);
   assert.equal(rows[1][9], ""); // no previous close: blank, not 0
   assert.equal($.api.csvCell('Acme, "Inc"'), '"Acme, ""Inc"""');
+});
+
+test("signals page lists everyone's pending signals with the visitor's key and downloads the trade-tool CSV", async () => {
+  const seen = [];
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] }, undefined, undefined, undefined, {
+    "/prediction/signals/pending": (init) => (seen.push(init.headers.Authorization), init.headers.Authorization === "Bearer good"
+      ? [{ analyst: "max", signal_id: "a1", ticker: "ZBH.N", target_price: 117.1, sent_at: "2026-11-09T22:51:34Z" },
+         { analyst: "jayden", signal_id: "t<b>", ticker: "AAPL", target_price: 280, sent_at: "2026-11-04T02:04:10Z" },
+         { analyst: "max", signal_id: "a2", ticker: "ZBRA.OQ", target_price: 348.7, sent_at: "2026-11-09T22:51:35Z" }]
+      : { status: 401 }),
+    "/prediction/signals/portfolio.csv": { text: "account,symbol,target\nU1,ZBH,0.5\nU1,ZBRA,-0.5\n", headers: { "X-Signals-Left-Out": "t1" } },
+  });
+  $("sgKey").value = "bad";
+  await $.api.sgLoad();
+  assert.match($("sgMsg").textContent, /not accepted/);
+  assert.equal($("sgDownload").disabled, true);
+  $("sgKey").value = " good ";
+  await $.api.sgLoad();
+  assert.deepEqual(seen, ["Bearer bad", "Bearer good"]);
+  assert.equal($("sgNote").textContent, "3 pending from 2 senders");
+  assert.equal($("sgSummary").textContent, "max 2 · jayden 1");
+  assert.match($("sgRows").innerHTML, /ZBRA\.OQ[\s\S]*ZBH\.N[\s\S]*AAPL/); // newest first
+  assert.match($("sgRows").innerHTML, /t&lt;b&gt;/);
+  assert.equal($("sgDownload").disabled, false);
+  await $.api.sgDownload();
+  assert.equal($("sgMsg").textContent, "Downloaded 2 rows. Left out (no LSEG price, or target equals price): t1");
 });

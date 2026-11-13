@@ -572,22 +572,63 @@ def list_signals(owner=Depends(sender)):
 
 
 # Declared before /{signal_id} so the path is not read as a signal ID.
+def pending_live(records):
+    return sorted((record for record in records.values()
+                   if record["status"] == "pending" and record["current"]["destination"] == "LIVE"),
+                  key=lambda record: record["history"][0]["at"])
+
+
+def lseg_prices(tickers):
+    """Delayed LSEG prices keyed by ticker as sent, from the local LSEG feed's /snapshot route."""
+    url = os.getenv("LSEG_FEED_URL", "http://127.0.0.1:8091") + "/snapshot"
+    response = requests.get(url, params={"symbols": ",".join(sorted(set(tickers)))}, timeout=90)
+    response.raise_for_status()
+    return {ticker: quote["price"] for ticker, quote in response.json()["quotes"].items()}
+
+
+# Declared before /{signal_id} so these paths are not read as signal IDs.
+@router.get("/pending")
+def pending_signals(_reader=Depends(sender)):
+    """Every sender's pending LIVE signals, for the dashboard's Signals tab."""
+    with locked_ledger() as (_, _, records):
+        return [{"analyst": record["owner"], "signal_id": record["current"]["signal_id"],
+                 "ticker": record["current"]["ticker"], "target_price": record["current"]["price"],
+                 "sent_at": record["history"][0]["at"]}
+                for record in pending_live(records)]
+
+
 @router.get("/portfolio.csv")
 def portfolio_csv(_reader=Depends(sender)):
-    """Every sender's pending LIVE signals, equal-weighted. Read-only: no quotes, nothing marked exported.
-    Long or short is not known yet; the export decides it from a fresh quote against target_price."""
+    """Pending LIVE signals as the Implementation tool's account,symbol,target file (ADR-0034).
+
+    Equal weight: each signal is +1/N if its target is above the LSEG price, -1/N if below. Signals on one
+    stock are added, since the tool keeps only the last row per symbol. Read-only: nothing marked exported.
+    """
+    account = os.getenv("SIGNAL_LIVE_ACCOUNT")
+    if not account:
+        raise HTTPException(503, "Missing SIGNAL_LIVE_ACCOUNT")
     with locked_ledger() as (_, _, records):
-        pending = sorted((record for record in records.values()
-                          if record["status"] == "pending" and record["current"]["destination"] == "LIVE"),
-                         key=lambda record: record["history"][0]["at"])
+        pending = [record["current"] for record in pending_live(records)]
+    try:
+        prices = lseg_prices([signal["ticker"] for signal in pending]) if pending else {}
+    except (requests.RequestException, KeyError, ValueError):
+        raise HTTPException(503, "LSEG prices unavailable; try again later") from None
+    sides, left_out = {}, []
+    for signal in pending:
+        price = prices.get(signal["ticker"])
+        direction = decision(signal, {"price": str(price)}) if price else None
+        if direction is None:
+            left_out.append(signal["signal_id"])
+            continue
+        sides.setdefault(us_ticker(signal["ticker"]), []).append(1 if direction == "LONG" else -1)
+    count = sum(len(signs) for signs in sides.values())
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["analyst", "signal_id", "symbol", "target_price", "sent_at", "weight"])
-    writer.writerows([record["owner"], record["current"]["signal_id"], us_ticker(record["current"]["ticker"]),
-                      record["current"]["price"], record["history"][0]["at"], 1 / len(pending)]
-                     for record in pending)
-    return Response(out.getvalue(), media_type="text/csv",
-                    headers={"Content-Disposition": 'attachment; filename="signals-portfolio.csv"'})
+    writer.writerow(["account", "symbol", "target"])
+    writer.writerows([account, symbol, round(sum(signs) / count, 6)] for symbol, signs in sides.items())
+    return Response(out.getvalue(), media_type="text/csv", headers={
+        "Content-Disposition": 'attachment; filename="signals-targets.csv"',
+        "X-Signals-Left-Out": ",".join(left_out)})
 
 
 @router.get("/{signal_id}")
@@ -604,8 +645,7 @@ def get_signal(signal_id: str, owner=Depends(sender)):
 @router.post("/clear")
 def clear_live(operator=Depends(administrator)):
     with locked_ledger() as (path, rows, records):
-        pending = [record for record in records.values()
-                   if record["status"] == "pending" and record["current"]["destination"] == "LIVE"]
+        pending = pending_live(records)
         if not pending:
             raise HTTPException(409, "no pending LIVE signals")
         for record in pending:
@@ -639,8 +679,7 @@ def export_live(operator=Depends(exporter)):
     if not account:
         raise HTTPException(503, "Missing SIGNAL_LIVE_ACCOUNT")
     with locked_ledger() as (ledger_path, ledger_rows, records):
-        pending = [record for record in records.values()
-                   if record["status"] == "pending" and record["current"]["destination"] == "LIVE"]
+        pending = pending_live(records)
         if not pending:
             raise HTTPException(409, "no pending LIVE signals")
         symbols = [us_ticker(record["current"]["ticker"]) for record in pending]
@@ -661,7 +700,7 @@ def export_live(operator=Depends(exporter)):
         output = data_root() / "exports" / filename
         rows = []
         rejected = []
-        for record in sorted(pending, key=lambda value: value["history"][0]["at"]):
+        for record in pending:
             signal = record["current"]
             quote = quotes[signal["ticker"]]
             direction = decision(signal, quote)

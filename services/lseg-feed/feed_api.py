@@ -2,7 +2,8 @@
 """Private, read-only REST API for LSEG delayed pricing streams.
 
 A single background thread owns the authenticated LSEG session and its stream.
-HTTP handlers only read a thread-safe in-memory copy of the latest snapshot.
+HTTP handlers read a thread-safe in-memory copy of the latest snapshot; the local-only
+/snapshot route prices arbitrary symbols once (on that session when it is open).
 No LSEG credentials or trade/order functionality are exposed over HTTP.
 """
 
@@ -125,6 +126,7 @@ class PriceStore:
         self.feed_window_open = False  # Includes post-close delayed-data buffer.
         self.next_market_open: str | None = None
         self.market_close: str | None = None
+        self.session: Any = None  # the worker's open LSEG session, if any
 
     def set_connection(self, connected: bool, status: str):
         with self.lock:
@@ -237,6 +239,35 @@ class PriceStore:
             }
 
 
+RIC_SUFFIX = re.compile(r"\.(N|O|OQ|A|P|K|Z)$")
+
+
+def ric_candidates(symbol: str) -> list[str]:
+    """A RIC as sent (ZBH.N), or a plain US ticker tried on each US venue (AAPL -> AAPL.N, AAPL.OQ, ...)."""
+    if RIC_SUFFIX.search(symbol):
+        return [symbol]
+    return [symbol + suffix for suffix in (".N", ".OQ", ".O", ".A", ".P", ".K")]
+
+
+def take_snapshot(session: Any, symbols: list[str]) -> dict[str, dict]:
+    """Last trade (or previous close) per symbol from one LSEG pricing snapshot request."""
+    import lseg.data as ld
+    candidates = {symbol: ric_candidates(symbol) for symbol in symbols}
+    rics = sorted({ric for rics in candidates.values() for ric in rics})
+    frame = ld.content.pricing.Definition(universe=rics, fields=["TRDPRC_1", "HST_CLOSE"]).get_data(session=session).data.df
+    prices = {}
+    for row in frame.to_dict(orient="records"):
+        price = clean_number(row.get("TRDPRC_1")) or clean_number(row.get("HST_CLOSE"))
+        if price and price > 0:
+            prices[str(row.get("Instrument"))] = price
+    quotes = {}
+    for symbol, rics in candidates.items():
+        ric = next((ric for ric in rics if ric in prices), None)
+        if ric:
+            quotes[symbol] = {"ric": ric, "price": prices[ric]}
+    return quotes
+
+
 def refresh_flex_symbols(store: PriceStore):
     """Optional: discover current positions once per session, while EDP is open.
 
@@ -330,6 +361,7 @@ def worker(stop: threading.Event, store: PriceStore, *, interval: float = 60.0,
             if str(session.open_state) != "OpenState.Opened":
                 raise RuntimeError("LSEG Platform session did not open")
             ld.session.set_default(session)
+            store.session = session  # /snapshot reuses it: the login allows one session
 
             refresh_flex_symbols(store)
             with store.lock:
@@ -398,6 +430,7 @@ def worker(stop: threading.Event, store: PriceStore, *, interval: float = 60.0,
                     stop.wait(min(delay, remaining))
                 delay = min(delay * 2, 120.0)
         finally:
+            store.session = None
             if stream is not None:
                 try:
                     stream.close()
@@ -451,6 +484,45 @@ def make_app(symbols: dict[str, str], interval: float = 60.0, *,
             return {"queued": False, "reason": "Manual refresh already in progress or queued"}
         manual_refresh.set()
         return {"queued": True, "message": "One-time off-hours refresh requested"}
+
+    snapshot_lock = threading.Lock()
+
+    @app.get("/snapshot")
+    def snapshot(request: Request, symbols: str = Query(..., description="Comma-separated RICs or US tickers")):
+        """One-off delayed prices for any symbols (signal pricing). Uses the streaming session when open;
+        otherwise opens a short session that never displaces another (signon_control=False)."""
+        if request.client is None or request.client.host not in ("127.0.0.1", "::1", "testclient"):
+            raise HTTPException(status_code=403, detail="Local requests only")
+        requested = sorted({s.strip() for s in symbols.split(",") if s.strip()})
+        if not requested or len(requested) > 500 or not all(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.]{0,19}", s) for s in requested):
+            raise HTTPException(status_code=422, detail="1-500 symbols of letters, digits and dots")
+        with snapshot_lock:
+            session = store.session
+            own = None
+            try:
+                if session is None:
+                    import lseg.data as ld
+                    own = session = ld.session.platform.Definition(
+                        app_key=os.environ["LSEG_APP_KEY"],
+                        grant=ld.session.platform.GrantPassword(username=os.environ["LSEG_USER_ID"],
+                                                                password=os.environ["LSEG_PASSWORD"]),
+                        signon_control=False,
+                    ).get_session()
+                    own.open()
+                    if str(own.open_state) != "OpenState.Opened":
+                        raise RuntimeError("LSEG Platform session did not open")
+                quotes = take_snapshot(session, requested)
+            except Exception as exc:
+                LOG.error("Snapshot failed (%s)", type(exc).__name__)
+                raise HTTPException(status_code=503, detail="LSEG snapshot unavailable") from None
+            finally:
+                if own is not None:
+                    try:
+                        own.close()
+                    except Exception:
+                        pass
+        return {"source": "lseg", "delayed": True, "at": utc_now(), "quotes": quotes,
+                "missing": [s for s in requested if s not in quotes]}
 
     @app.get("/health")
     def health():

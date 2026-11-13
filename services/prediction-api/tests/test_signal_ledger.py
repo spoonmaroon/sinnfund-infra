@@ -180,6 +180,23 @@ class LedgerTest(unittest.TestCase):
             ledger.export_live(operator='exporter')
         self.assertEqual(error.exception.status_code,409)
 
+    def test_targets_csv_is_equal_weight_netted_and_reports_what_it_left_out(self):
+        for ident,owner,ticker,price in [('a','max','ZBH.N',120),('b','max','ZBRA.OQ',80),('c','alice','ZBH',130),
+                                         ('d','alice','KO',100),('e','bob','NOPE',50)]:
+            ledger.create(ledger.SignalCreate(signal_id=ident,destination='LIVE',ticker=ticker,price=price,timestamp=1),owner=owner)
+        prices={'ZBH.N':100,'ZBRA.OQ':100,'ZBH':100,'KO':100}  # KO equals its target, NOPE has no price
+        with patch.object(ledger,'lseg_prices',return_value=prices) as lseg:
+            response=ledger.portfolio_csv()
+        self.assertEqual(sorted(lseg.call_args.args[0]),['KO','NOPE','ZBH','ZBH.N','ZBRA.OQ'])
+        rows=list(csv.reader(io.StringIO(response.body.decode())))
+        self.assertEqual(rows,[['account','symbol','target'],['TEST','ZBH','0.666667'],['TEST','ZBRA','-0.333333']])
+        self.assertEqual(response.headers['X-Signals-Left-Out'],'d,e')
+        self.assertEqual([r['status'] for r in ledger.list_signals(owner='max')],['pending','pending'])
+        with patch.object(ledger,'lseg_prices',side_effect=ledger.requests.ConnectionError()):
+            with self.assertRaises(HTTPException) as error:
+                ledger.portfolio_csv()
+        self.assertEqual(error.exception.status_code,503)
+
     def test_freshness_requires_current_fetch_and_recent_market_timestamp(self):
         now=time.time()
         with patch.object(ledger.time,'time',return_value=now):
