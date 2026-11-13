@@ -28,3 +28,14 @@
 /* Phones: grid columns may shrink (tables scroll inside their card), tabs keep their labels, two compact stat columns. */
 .grid>*,.stats>*,.position-hero>*,.sector-hero>*{min-width:0}
 @media(max-width:720px){.grid{grid-template-columns:minmax(0,1fr)}.side{height:auto;flex-wrap:wrap;gap:10px;padding:12px 13px 8px}.nav{margin-left:0;width:100%;overflow-x:auto;gap:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.nav::-webkit-scrollbar{display:none}.nav a{font-size:13px;white-space:nowrap;padding:8px 11px;flex:none}.stats,.position-hero,.sector-hero{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:13px;min-height:0}.stat strong{font-size:19px}.stat small{font-size:11px}.top h1{font-size:26px}.positions-toolbar{gap:6px}.positions-toolbar label{flex:1 1 140px}.wi-actions{flex-wrap:wrap}.wi-bar{flex-wrap:wrap}.wi-run{width:100%;margin-left:0}}
+.hm-card{padding:14px}
+.hm-legend{display:flex;align-items:center;gap:8px;margin:0 0 10px;color:var(--muted);font-size:11px}
+.hm-legend i{width:160px;height:8px;border-radius:4px;background:linear-gradient(90deg,#d92d20,#484e5c,#039855)}
+.hm-legend b{width:12px;height:8px;border-radius:2px;background:#b8bec9;margin-left:10px}
+.hm{position:relative;width:100%;overflow:hidden;border-radius:8px;background:#fff}
+.hm-sector{position:absolute;box-sizing:border-box;border:1px solid #fff}
+.hm-head{position:absolute;left:0;right:0;top:0;height:16px;padding:0 5px;font-size:10px;font-weight:700;line-height:16px;color:#172033;background:#e9ecf1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-head span{color:var(--muted);font-weight:600}
+.hm-tile{position:absolute;box-sizing:border-box;border:1px solid #ffffff59;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;color:#fff;text-align:center;line-height:1.1;cursor:default}
+.hm-tile strong{font-weight:700}
+.hm-tile span{font-size:10px;opacity:.9}

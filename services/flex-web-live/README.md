@@ -16,6 +16,7 @@ live for debugging and as a fallback; it is not linked from the landing page.
 | Dashboard | Net liquidation value (positions + cash), unrealized P&L, day change, accounts table (NLV, % allocation, positions, cash, day change, P&L), sector allocation donut. Portfolio history is off until IBKR sends daily NAV. |
 | Positions | Every holding with price, day change, market value, cost, gain/loss and price source; expandable tax lots; grouping, filters and sortable columns. |
 | Sectors | Gross exposure, net value, day change and unrealized P&L per sector; sortable columns; holdings per sector. |
+| Heatmap | Every holding as a tile grouped by sector (squarified treemap, `ui/heatmap.js`): area is gross value with the same stock combined across accounts, colour is the latest price move (full red or green at ±3%, grey when there is no move), `·S` marks a net short; hover for value, day P&L and account count. |
 | What if | Basket of proposed trades (typed, pasted from a spreadsheet or a CSV) and their effect on fund and account risk; see `risk/README.md`. |
 | Risk management | 1-day VaR 95/99%, expected shortfall 97.5%, S&P 500 sensitivity, account risk, top risk contributors, risk by sector, worst historical days, model exclusions. See [`risk/README.md`](risk/README.md). |
 

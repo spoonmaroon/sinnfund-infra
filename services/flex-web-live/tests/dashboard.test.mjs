@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 
 const APP = readFileSync(new URL("../ui/app.js", import.meta.url), "utf8")
   + "\n" + readFileSync(new URL("../ui/whatif.js", import.meta.url), "utf8")
-  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge };";
+  + "\n" + readFileSync(new URL("../ui/heatmap.js", import.meta.url), "utf8")
+  + "\nreturn { wiParse, wiRender, wiAccountId, wiProblems, wiOpen, wiMerge, hmSquarify, hmSectors, hmColor, renderHeatmap };";
 
 // Minimal stand-in for DOM elements: records text/HTML, ignores everything else.
 function fakeElement() {
@@ -39,6 +40,7 @@ async function render(report, sectors = { sectors: {} }, history = { points: [] 
       querySelector: (selector) => byId(`query:${selector}`), querySelectorAll: () => [],
     },
     window: { scrollTo() {} },
+    ResizeObserver: class { observe() {} },
     fetch: async (url) => ({ ok: url in responses, json: async () => responses[url] }),
     console,
   };
@@ -356,4 +358,36 @@ test("what-if will not run while a row is missing its quantity or symbol", async
   assert.deepEqual($.api.wiProblems(), ["Row 2: enter a quantity", "Row 3: enter a symbol", "Row 4: enter a quantity (a non-zero number)"]);
   assert.deepEqual(rows.map((r) => r.inputs.slice(0, 2).map((i) => i.invalid)),
     [[false, false], [false, true], [true, false], [false, true], [false, false]]);
+});
+
+test("heatmap tiles fill the box with areas in proportion to value", async () => {
+  const $ = await render({ date: "20261106", positions: [position({})], lots: [] });
+  const items = [50, 25, 10, 8, 4, 2, 1].map((size, i) => ({ id: i, size }));
+  const rects = $.api.hmSquarify(items, 0, 0, 300, 200);
+  assert.equal(rects.length, items.length);
+  for (const r of rects) {
+    assert.ok(Math.abs(r.w * r.h - (r.item.size / 100) * 60000) < 1e-6);
+    assert.ok(r.x >= -1e-9 && r.y >= -1e-9 && r.x + r.w <= 300 + 1e-9 && r.y + r.h <= 200 + 1e-9);
+  }
+  for (const a of rects) for (const b of rects) if (a !== b)  // no two tiles overlap
+    assert.ok(a.x + a.w <= b.x + 1e-9 || b.x + b.w <= a.x + 1e-9 || a.y + a.h <= b.y + 1e-9 || b.y + b.h <= a.y + 1e-9);
+  assert.deepEqual($.api.hmSquarify([], 0, 0, 300, 200), []);
+});
+
+test("heatmap combines a stock across accounts and colours by price move", async () => {
+  const $ = await render({ date: "20261106", positions: [
+    position({ account_id: "U1", symbol: "AAA", market_value: "1000", day_change_value: "20", day_change_pct: "2" }),
+    position({ account_id: "U2", symbol: "AAA", market_value: "500", day_change_value: "10", day_change_pct: "2" }),
+    position({ account_id: "U2", conid: "2", symbol: "BBB", market_value: "-300", day_change_pct: "-1.5", day_change_value: "9" }),
+  ], lots: [] });
+  const [sector] = $.api.hmSectors();
+  assert.deepEqual(sector.tiles.map((t) => [t.symbol, t.value, t.size, t.accounts.size]), [["AAA", 1500, 1500, 2], ["BBB", -300, 300, 1]]);
+  assert.equal($.api.hmColor(0), "rgb(72,78,92)");
+  assert.equal($.api.hmColor(5), "rgb(3,152,85)"); // past +3% stays full green
+  assert.equal($.api.hmColor(-3), "rgb(217,45,32)");
+  assert.equal($.api.hmColor(null), "#b8bec9");
+  $.api.renderHeatmap();
+  assert.equal(($("heatmap").innerHTML.match(/class="hm-tile"/g) || []).length, 2);
+  assert.match($("heatmap").innerHTML, /BBB ·S/);
+  assert.equal($("hmNote").textContent, "2 holdings in 1 sectors");
 });
