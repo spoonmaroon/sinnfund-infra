@@ -43,6 +43,14 @@ ssh sinnfund 'python3 /opt/prediction-api/tools/signal_list.py --destination LIV
 The viewer defaults to pending. Use `--status all` to include deleted/exported
 signals, or `--ledger /path/to/ledger.csv` to inspect a different ledger.
 
+### Download the pending signals (any sender key)
+
+`GET /signals/portfolio.csv` returns every sender's pending LIVE signals, one row each with weight 1/N
+(`analyst,signal_id,symbol,target_price,sent_at,weight`; RICs shown as plain tickers). It is read-only:
+no quotes are fetched and nothing is marked exported, so it is not limited by Twelve Data. Long or short is
+left out because the export decides it from a fresh quote. Exporter-only keys are refused; use a sender or
+admin key. See QUICKSTART step 4 for the command.
+
 ### Export a CSV on the box
 
 An admin key can export using the same saved key used for sending:

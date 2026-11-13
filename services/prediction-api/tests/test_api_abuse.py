@@ -1,5 +1,7 @@
 """HTTP abuse regressions against an isolated service with synthetic market prices."""
 import base64
+import csv
+import io
 import hashlib
 import json
 import os
@@ -111,6 +113,21 @@ class ApiAbuseTest(unittest.TestCase):
         self.assertEqual(self.request('/signals',self.signal('bad-scope'),'exporter')[0],401)
         self.assertEqual(self.request('/reset',{},'alice')[0],401)
         self.assertEqual(self.request('/portfolio',owner='alice')[0],401)
+
+    def test_every_sender_downloads_everyones_pending_live_signals(self):
+        self.assertEqual(self.request('/signals',dict(self.signal('csv-alice'),ticker='ZBH.N'),'alice')[0],202)
+        self.assertEqual(self.request('/signals',self.signal('csv-bob'),'bob')[0],202)
+        for owner in ['alice','bob','admin']:
+            code,body=self.request('/signals/portfolio.csv',owner=owner)
+            self.assertEqual(code,200)
+            rows={row[1]:row for row in csv.reader(io.StringIO(body.decode()))}
+            self.assertEqual(rows['signal_id'],['analyst','signal_id','symbol','target_price','sent_at','weight'])
+            self.assertEqual(rows['csv-alice'][:4],['alice','csv-alice','ZBH','110.0'])
+            self.assertEqual(rows['csv-bob'][0],'bob')
+            self.assertAlmostEqual(sum(float(row[5]) for row in rows.values() if row[0]!='analyst'),1)
+        for owner in [None,'exporter']:
+            self.assertEqual(self.request('/signals/portfolio.csv',owner=owner)[0],401)
+        self.assertEqual(json.loads(self.request('/signals/csv-alice')[1])['status'],'pending')  # download changes nothing
 
     def test_nonfinite_numbers_are_client_errors_not_server_errors(self):
         for value in [float('nan'),float('inf'),float('-inf')]:

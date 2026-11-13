@@ -2,6 +2,7 @@
 
 import base64
 import csv
+import io
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -20,7 +21,7 @@ import time
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 import requests
 
@@ -568,6 +569,25 @@ def list_signals(owner=Depends(sender)):
              "reason": record["reason"]}
             for record in records.values() if record["owner"] == owner
         ]
+
+
+# Declared before /{signal_id} so the path is not read as a signal ID.
+@router.get("/portfolio.csv")
+def portfolio_csv(_reader=Depends(sender)):
+    """Every sender's pending LIVE signals, equal-weighted. Read-only: no quotes, nothing marked exported.
+    Long or short is not known yet; the export decides it from a fresh quote against target_price."""
+    with locked_ledger() as (_, _, records):
+        pending = sorted((record for record in records.values()
+                          if record["status"] == "pending" and record["current"]["destination"] == "LIVE"),
+                         key=lambda record: record["history"][0]["at"])
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["analyst", "signal_id", "symbol", "target_price", "sent_at", "weight"])
+    writer.writerows([record["owner"], record["current"]["signal_id"], us_ticker(record["current"]["ticker"]),
+                      record["current"]["price"], record["history"][0]["at"], 1 / len(pending)]
+                     for record in pending)
+    return Response(out.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="signals-portfolio.csv"'})
 
 
 @router.get("/{signal_id}")

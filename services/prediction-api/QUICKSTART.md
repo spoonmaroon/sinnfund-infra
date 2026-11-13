@@ -108,6 +108,15 @@ See one signal, including its current revision and audit history:
 python3 "$CLIENT" get example-1
 ```
 
+Download every analyst's pending LIVE signals as an equal-weight CSV (any sender key works; nothing is exported or changed):
+
+```bash
+curl -fsS -H "Authorization: Bearer $(cat ~/.config/sinnfund/signal-sender.key)" \
+  https://sinnfund.jkoh.dev/prediction/signals/portfolio.csv -o ~/Downloads/signals-portfolio.csv
+```
+
+Columns: `analyst,signal_id,symbol,target_price,sent_at,weight`. Each weight is 1/N. Long or short is decided only at export, from a fresh quote against `target_price`.
+
 ## 5. Edit a signal
 
 The client gets the latest revision automatically:
